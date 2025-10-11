@@ -24,7 +24,7 @@ const LevelConfigSchema = new mongoose.Schema({
     },
     levelBadge: {
         type: String,
-        required: true,
+        required: false,
         trim: true,
     },
 },{timestamps: true})
