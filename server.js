@@ -49,6 +49,7 @@ app.use(express.json());
     app.use("/api/admin/users", userRoutes);
     app.use("/api/admin/actions", actionRoutes);
     app.use("/api/admin/challenges", challengeRoutes);
+    app.use("/api/admin", adminRoutes);
 
 
 
