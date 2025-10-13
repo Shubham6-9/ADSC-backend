@@ -76,6 +76,57 @@ export const createBudget = async (req, res) => {
       return res.status(400).json({ success: false, message: "budgetAmount must be a positive number" });
     }
 
+    // === CHECK FOR OVERLAPPING BUDGETS ===
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Check for overlapping budgets based on budget type
+    const overlapQuery = {
+      user: userId,
+      startDate: { $lte: today },
+      endDate: { $gte: today }
+    };
+
+    if (budgetType === "overall") {
+      // For overall budgets, check if any overall budget already exists covering today
+      overlapQuery.budgetType = "overall";
+      
+      const existingOverallBudget = await Budget.findOne(overlapQuery);
+      
+      if (existingOverallBudget) {
+        return res.status(400).json({
+          success: false,
+          message: `An overall budget already exists covering today's date (${existingOverallBudget.startDate.toISOString().split('T')[0]} to ${existingOverallBudget.endDate.toISOString().split('T')[0]}). Please wait until it expires or delete it first.`,
+          existingBudget: {
+            title: existingOverallBudget.title,
+            startDate: existingOverallBudget.startDate,
+            endDate: existingOverallBudget.endDate,
+            budgetAmount: existingOverallBudget.budgetAmount
+          }
+        });
+      }
+    } else if (budgetType === "category") {
+      // For category budgets, check if a budget for the same category already exists covering today
+      overlapQuery.budgetType = "category";
+      overlapQuery.categoryName = categoryName;
+      
+      const existingCategoryBudget = await Budget.findOne(overlapQuery);
+      
+      if (existingCategoryBudget) {
+        return res.status(400).json({
+          success: false,
+          message: `A budget for category "${categoryName}" already exists covering today's date (${existingCategoryBudget.startDate.toISOString().split('T')[0]} to ${existingCategoryBudget.endDate.toISOString().split('T')[0]}). Please wait until it expires or delete it first.`,
+          existingBudget: {
+            title: existingCategoryBudget.title,
+            category: existingCategoryBudget.categoryName,
+            startDate: existingCategoryBudget.startDate,
+            endDate: existingCategoryBudget.endDate,
+            budgetAmount: existingCategoryBudget.budgetAmount
+          }
+        });
+      }
+    }
+
     // === MONTHLY BUDGET VALIDATION ===
     // Check if monthly budget exceeds yearly budget (if yearly exists)
     if (budgetDuration === "monthly") {
