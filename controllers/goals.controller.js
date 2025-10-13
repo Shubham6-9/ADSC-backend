@@ -2,6 +2,7 @@
 import mongoose from "mongoose";
 import Goal from "../models/Goal.js";
 import User from "../models/User.js"; // used only if req.user.username missing
+import { updateChallengeProgress } from "../services/dailyChallenge.service.js";
 
 // Helper to validate date string
 function isValidDate(v) {
@@ -78,6 +79,13 @@ export const createGoal = async (req, res) => {
       priority,
       category: String(category || "General").trim(),
     });
+
+    // Update daily challenge progress for creating a goal
+    try {
+      await updateChallengeProgress(userId, 'create-goal', 1);
+    } catch (challengeErr) {
+      console.error("Challenge update error:", challengeErr);
+    }
 
     return res.status(201).json({ success: true, goal: doc });
   } catch (err) {

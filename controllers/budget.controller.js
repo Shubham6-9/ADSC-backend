@@ -2,6 +2,7 @@
 import mongoose from "mongoose";
 import Budget from "../models/Budget.js";
 import TotalSavings from "../models/TotalSavings.js";
+import { updateChallengeProgress } from "../services/dailyChallenge.service.js";
 
 /**
  * Helper: recalc and update TotalSavings for a user by aggregating budgets.savings
@@ -148,6 +149,13 @@ export const createBudget = async (req, res) => {
 
     // Refresh total savings aggregate
     const totalSavings = await refreshTotalSavingsForUser(userId);
+
+    // Update daily challenge progress for creating a budget
+    try {
+      await updateChallengeProgress(userId, 'create-budget', 1);
+    } catch (challengeErr) {
+      console.error("Challenge update error:", challengeErr);
+    }
 
     return res.status(201).json({ success: true, budget: budgetDoc, totalSavings: totalSavings.totalSaved });
   } catch (err) {

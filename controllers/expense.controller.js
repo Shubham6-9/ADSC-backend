@@ -2,6 +2,7 @@
 import mongoose from "mongoose";
 import Expense from "../models/Expense.js";
 import { updateStreakOnExpense, getStreakXPReward } from "../services/streak.service.js";
+import { updateChallengeProgress } from "../services/dailyChallenge.service.js";
 
 /**
  * Helper - validate ISO date string
@@ -51,6 +52,31 @@ export const createExpense = async (req, res) => {
     let streakXP = 0;
     if (streakResult.success && streakResult.streakIncreased) {
       streakXP = getStreakXPReward(streakResult.currentStreak);
+    }
+
+    // Update daily challenges progress
+    try {
+      // Track basic expense addition
+      await updateChallengeProgress(userId, 'add-expense', 1);
+      
+      // Track expense with notes
+      if (notes && String(notes).trim()) {
+        await updateChallengeProgress(userId, 'add-expense-with-notes', 1);
+      }
+      
+      // Track multiple expenses
+      await updateChallengeProgress(userId, 'add-multiple-expenses', 1);
+      
+      // Track daily tracking
+      await updateChallengeProgress(userId, 'track-daily', 1);
+      
+      // Track streak keeping
+      if (streakResult.success && streakResult.currentStreak > 0) {
+        await updateChallengeProgress(userId, 'check-streak', 1);
+      }
+    } catch (challengeErr) {
+      // Don't fail expense creation if challenge update fails
+      console.error("Challenge update error:", challengeErr);
     }
 
     // OPTIONAL: If you want to update budgets automatically when a new expense is added,

@@ -10,6 +10,7 @@ import adminRoutes from "./routes/admin.routes.js";
 import actionRoutes from "./routes/action.routes.js";
 import challengeRoutes from "./routes/challenge.routes.js";
 import userChallengeRoutes from "./routes/userChallenge.routes.js";
+import dailyChallengeRoutes from "./routes/dailyChallenge.routes.js";
 import budgetRoutes from "./routes/budget.routes.js";
 import expenseRoutes from "./routes/expense.routes.js";
 import goalsRoutes from "./routes/goals.routes.js";
@@ -36,6 +37,7 @@ app.use(express.json());
 //Routes
     app.use("/api/user/auth", authRoutes);
     app.use("/api/user/my-challenges", userChallengeRoutes); // or whatever path you prefer
+    app.use("/api/user/daily-challenges", dailyChallengeRoutes); // Daily challenges routes
     app.use("/api/user/budget", budgetRoutes);
     app.use("/api/user/expense", expenseRoutes);
     app.use("/api/user/goals", goalsRoutes);
