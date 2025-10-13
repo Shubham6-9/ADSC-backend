@@ -149,7 +149,9 @@ export const getUserDashboardData = async (req, res) => {
         xp: totalXpEarned,
         xpForNextLevel: xpForNextLevel,
         xpProgress: parseFloat(xpProgress),
-        totalCompletedChallenges: totalCompletedChallenges
+        totalCompletedChallenges: totalCompletedChallenges,
+        currentStreak: user.currentStreak || 0,
+        longestStreak: user.longestStreak || 0
       },
       completedChallenges: user.completedChallenges.map(cc => ({
         challengeId: cc.challenge?._id,
@@ -275,7 +277,12 @@ export const updateProfile = async (req, res) => {
         currency: updatedUser.currency,
         currencySymbol: updatedUser.currencySymbol,
         level: updatedUser.level,
-        xp: updatedUser.xp
+        xp: updatedUser.xp,
+        xpForNextLevel: updatedUser.xpForNextLevel,
+        currentStreak: updatedUser.currentStreak || 0,
+        longestStreak: updatedUser.longestStreak || 0,
+        completedChallenges: updatedUser.completedChallenges || [],
+        createdAt: updatedUser.createdAt
       }
     });
   } catch (err) {
