@@ -135,16 +135,29 @@ export const getGoals = async (req, res) => {
       sort = { createdAt: -1 };
     }
 
-    const [total, goals] = await Promise.all([
+    // Get counts for all statuses
+    const baseFilter = { user: new mongoose.Types.ObjectId(userId) };
+    const [total, goals, activeCount, achievedCount, totalCount] = await Promise.all([
       Goal.countDocuments(filter),
-      Goal.find(filter).sort(sort).skip(skip).limit(limit).lean()
+      Goal.find(filter).sort(sort).skip(skip).limit(limit).lean(),
+      Goal.countDocuments({ ...baseFilter, isAchieved: false }),
+      Goal.countDocuments({ ...baseFilter, isAchieved: true }),
+      Goal.countDocuments(baseFilter)
     ]);
 
     const totalPages = Math.ceil(total / limit);
 
     return res.json({
       success: true,
-      meta: { total, page, limit, totalPages },
+      meta: { 
+        total: totalCount,
+        active: activeCount,
+        achieved: achievedCount,
+        currentTotal: total,
+        page, 
+        limit, 
+        totalPages 
+      },
       goals
     });
   } catch (err) {
