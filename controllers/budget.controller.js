@@ -77,18 +77,34 @@ export const createBudget = async (req, res) => {
     }
 
     // === CHECK FOR OVERLAPPING BUDGETS ===
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const newStartDate = new Date(startDate);
+    const newEndDate = new Date(endDate);
     
-    // Check for overlapping budgets based on budget type
+    // Check for overlapping budgets: new budget's date range should NOT overlap with existing active budgets
+    // Overlap occurs when: (newStart <= existingEnd) AND (newEnd >= existingStart)
     const overlapQuery = {
       user: userId,
-      startDate: { $lte: today },
-      endDate: { $gte: today }
+      $or: [
+        // Case 1: New budget starts during an existing budget
+        {
+          startDate: { $lte: newStartDate },
+          endDate: { $gte: newStartDate }
+        },
+        // Case 2: New budget ends during an existing budget
+        {
+          startDate: { $lte: newEndDate },
+          endDate: { $gte: newEndDate }
+        },
+        // Case 3: New budget completely contains an existing budget
+        {
+          startDate: { $gte: newStartDate },
+          endDate: { $lte: newEndDate }
+        }
+      ]
     };
 
     if (budgetType === "overall") {
-      // For overall budgets, check if any overall budget already exists covering today
+      // For overall budgets, check if any overall budget overlaps with the new date range
       overlapQuery.budgetType = "overall";
       
       const existingOverallBudget = await Budget.findOne(overlapQuery);
@@ -96,7 +112,7 @@ export const createBudget = async (req, res) => {
       if (existingOverallBudget) {
         return res.status(400).json({
           success: false,
-          message: `An overall budget already exists covering today's date (${existingOverallBudget.startDate.toISOString().split('T')[0]} to ${existingOverallBudget.endDate.toISOString().split('T')[0]}). Please wait until it expires or delete it first.`,
+          message: `An overall budget already exists that overlaps with your selected dates (${existingOverallBudget.startDate.toISOString().split('T')[0]} to ${existingOverallBudget.endDate.toISOString().split('T')[0]}). Please choose different dates or delete the existing budget first.`,
           existingBudget: {
             title: existingOverallBudget.title,
             startDate: existingOverallBudget.startDate,
@@ -106,7 +122,7 @@ export const createBudget = async (req, res) => {
         });
       }
     } else if (budgetType === "category") {
-      // For category budgets, check if a budget for the same category already exists covering today
+      // For category budgets, check if a budget for the same category overlaps with the new date range
       overlapQuery.budgetType = "category";
       overlapQuery.categoryName = categoryName;
       
@@ -115,7 +131,7 @@ export const createBudget = async (req, res) => {
       if (existingCategoryBudget) {
         return res.status(400).json({
           success: false,
-          message: `A budget for category "${categoryName}" already exists covering today's date (${existingCategoryBudget.startDate.toISOString().split('T')[0]} to ${existingCategoryBudget.endDate.toISOString().split('T')[0]}). Please wait until it expires or delete it first.`,
+          message: `A budget for category "${categoryName}" already exists that overlaps with your selected dates (${existingCategoryBudget.startDate.toISOString().split('T')[0]} to ${existingCategoryBudget.endDate.toISOString().split('T')[0]}). Please choose different dates or delete the existing budget first.`,
           existingBudget: {
             title: existingCategoryBudget.title,
             category: existingCategoryBudget.categoryName,
