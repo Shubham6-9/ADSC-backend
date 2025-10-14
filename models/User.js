@@ -93,6 +93,40 @@ const userSchema = new mongoose.Schema(
         },
       },
     ],
+    
+    // ---------- Friends fields ----------
+    friends: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    friendRequestsSent: [
+      {
+        to: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+        sentAt: {
+          type: Date,
+          default: () => new Date(),
+        },
+      },
+    ],
+    friendRequestsReceived: [
+      {
+        from: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+        receivedAt: {
+          type: Date,
+          default: () => new Date(),
+        },
+      },
+    ],
   },
   { timestamps: true }
 );

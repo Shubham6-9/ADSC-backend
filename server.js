@@ -16,6 +16,7 @@ import expenseRoutes from "./routes/expense.routes.js";
 import goalsRoutes from "./routes/goals.routes.js";
 import leaderboardRoutes from "./routes/leaderboard.routes.js";
 import streakRoutes from "./routes/streak.routes.js";
+import friendsRoutes from "./routes/friends.routes.js";
 
 
 
@@ -43,6 +44,7 @@ app.use(express.json());
     app.use("/api/user/goals", goalsRoutes);
     app.use("/api/user/leaderboard", leaderboardRoutes); // Leaderboard routes
     app.use("/api/user/streak", streakRoutes); // Streak routes
+    app.use("/api/user/friends", friendsRoutes); // Friends routes
     app.use("/api/user", userRoutes); // User profile routes (must come AFTER specific routes)
 
     //admin
