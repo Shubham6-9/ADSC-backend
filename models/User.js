@@ -94,6 +94,13 @@ const userSchema = new mongoose.Schema(
       },
     ],
     
+    // ---------- Virtual Currency ----------
+    virtualCurrency: {
+      type: Number,
+      default: 0,
+      min: [0, "Virtual currency cannot be negative"],
+    },
+    
     // ---------- Friends fields ----------
     friends: [
       {

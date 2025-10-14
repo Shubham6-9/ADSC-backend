@@ -4,6 +4,7 @@ import User from "../models/User.js";
 import Expense from "../models/Expense.js";
 import Budget from "../models/Budget.js";
 import Goal from "../models/Goal.js";
+import CurrencyTransaction from "../models/CurrencyTransaction.js";
 import addXp from "./addXp.service.js";
 
 /**
@@ -15,6 +16,7 @@ const CHALLENGE_TEMPLATES = [
     title: 'Track Your Spending',
     description: 'Add at least 1 expense today',
     xpReward: 10,
+    currencyReward: 5,
     targetValue: 1
   },
   {
@@ -22,6 +24,7 @@ const CHALLENGE_TEMPLATES = [
     title: 'Detail Master',
     description: 'Add an expense with detailed notes',
     xpReward: 15,
+    currencyReward: 8,
     targetValue: 1
   },
   {
@@ -29,6 +32,7 @@ const CHALLENGE_TEMPLATES = [
     title: 'Diligent Tracker',
     description: 'Add 3 or more expenses today',
     xpReward: 25,
+    currencyReward: 15,
     targetValue: 3
   },
   {
@@ -36,6 +40,7 @@ const CHALLENGE_TEMPLATES = [
     title: 'Streak Keeper',
     description: 'Maintain your daily expense tracking streak',
     xpReward: 20,
+    currencyReward: 10,
     targetValue: 1
   },
   {
@@ -43,6 +48,7 @@ const CHALLENGE_TEMPLATES = [
     title: 'Budget Planner',
     description: 'Create a new budget for better financial control',
     xpReward: 30,
+    currencyReward: 20,
     targetValue: 1
   },
   {
@@ -50,6 +56,7 @@ const CHALLENGE_TEMPLATES = [
     title: 'Goal Setter',
     description: 'Set a new financial goal',
     xpReward: 30,
+    currencyReward: 20,
     targetValue: 1
   },
   {
@@ -57,6 +64,7 @@ const CHALLENGE_TEMPLATES = [
     title: 'Daily Commitment',
     description: 'Log in and check your dashboard',
     xpReward: 5,
+    currencyReward: 3,
     targetValue: 1
   }
 ];
@@ -197,6 +205,25 @@ export async function updateChallengeProgress(userId, challengeType, incrementBy
       
       // Award XP
       await addXp(userId, challenge.xpReward);
+      
+      // Award Virtual Currency
+      const currencyReward = challenge.currencyReward || 0;
+      if (currencyReward > 0) {
+        const user = await User.findById(userId);
+        const balanceBefore = user.virtualCurrency;
+        user.virtualCurrency += currencyReward;
+        await user.save();
+        
+        // Create transaction record
+        await CurrencyTransaction.create({
+          user: userId,
+          amount: currencyReward,
+          type: "daily_challenge_reward",
+          balanceBefore,
+          balanceAfter: user.virtualCurrency,
+          description: `Completed daily challenge: ${challenge.title}`,
+        });
+      }
     }
 
     await challenge.save();
@@ -205,7 +232,8 @@ export async function updateChallengeProgress(userId, challengeType, incrementBy
       success: true,
       challenge,
       completed: challenge.isCompleted,
-      xpAwarded: challenge.isCompleted ? challenge.xpReward : 0
+      xpAwarded: challenge.isCompleted ? challenge.xpReward : 0,
+      currencyAwarded: challenge.isCompleted ? (challenge.currencyReward || 0) : 0
     };
   } catch (err) {
     console.error("updateChallengeProgress error:", err);
@@ -238,6 +266,27 @@ export async function completeDailyChallenge(userId, challengeId) {
 
     // Award XP
     const xpResult = await addXp(userId, challenge.xpReward);
+    
+    // Award Virtual Currency
+    const currencyReward = challenge.currencyReward || 0;
+    let currencyAwarded = 0;
+    if (currencyReward > 0) {
+      const user = await User.findById(userId);
+      const balanceBefore = user.virtualCurrency;
+      user.virtualCurrency += currencyReward;
+      await user.save();
+      currencyAwarded = currencyReward;
+      
+      // Create transaction record
+      await CurrencyTransaction.create({
+        user: userId,
+        amount: currencyReward,
+        type: "daily_challenge_reward",
+        balanceBefore,
+        balanceAfter: user.virtualCurrency,
+        description: `Completed daily challenge: ${challenge.title}`,
+      });
+    }
 
     await challenge.save();
 
@@ -245,7 +294,8 @@ export async function completeDailyChallenge(userId, challengeId) {
       success: true,
       challenge,
       xpResult,
-      message: "Challenge completed successfully!"
+      currencyAwarded,
+      message: `Challenge completed! Earned ${challenge.xpReward} XP and ${currencyAwarded} coins!`
     };
   } catch (err) {
     console.error("completeDailyChallenge error:", err);

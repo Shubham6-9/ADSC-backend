@@ -41,6 +41,11 @@ const DailyChallengeSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
+  currencyReward: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   targetValue: {
     type: Number,
     default: 1 // e.g., add 3 expenses, save $50, etc.
