@@ -5,6 +5,7 @@ import {
   getChallengeStats,
   updateChallengeProgress
 } from "../services/dailyChallenge.service.js";
+import DailyChallenge from "../models/DailyChallenge.js";
 
 /**
  * GET /api/user/daily-challenges
@@ -128,9 +129,46 @@ export const updateProgress = async (req, res) => {
   }
 };
 
+/**
+ * DELETE /api/user/daily-challenges/reset-today
+ * Reset today's challenges (delete them so they regenerate with new rewards)
+ * Useful after currency system update
+ */
+export const resetTodayChallenges = async (req, res) => {
+  try {
+    const userId = req.user && req.user.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const result = await DailyChallenge.deleteMany({
+      user: userId,
+      date: { $gte: todayStart, $lte: todayEnd }
+    });
+
+    return res.json({
+      success: true,
+      message: `Deleted ${result.deletedCount} challenges. Refresh to generate new ones with currency rewards!`,
+      deletedCount: result.deletedCount
+    });
+  } catch (err) {
+    console.error("resetTodayChallenges error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error"
+    });
+  }
+};
+
 export default {
   getDailyChallenges,
   completeChallenge,
   getStats,
-  updateProgress
+  updateProgress,
+  resetTodayChallenges
 };

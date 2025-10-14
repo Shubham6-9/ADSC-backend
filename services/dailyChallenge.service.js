@@ -122,6 +122,7 @@ export async function generateDailyChallenges(userId) {
     for (const template of selectedTemplates) {
       const levelMultiplier = 1 + (user.level - 1) * 0.1; // 10% increase per level
       const scaledXP = Math.round(template.xpReward * levelMultiplier);
+      const scaledCurrency = Math.round((template.currencyReward || 0) * levelMultiplier);
 
       const challenge = await DailyChallenge.create({
         user: userId,
@@ -130,6 +131,7 @@ export async function generateDailyChallenges(userId) {
         title: template.title,
         description: template.description,
         xpReward: scaledXP,
+        currencyReward: scaledCurrency,
         targetValue: template.targetValue,
         currentProgress: 0,
         isCompleted: false

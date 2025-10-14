@@ -4,7 +4,8 @@ import {
   getDailyChallenges,
   completeChallenge,
   getStats,
-  updateProgress
+  updateProgress,
+  resetTodayChallenges
 } from "../controllers/dailyChallenge.controller.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 
@@ -21,5 +22,8 @@ router.post("/:id/complete", authMiddleware, completeChallenge);
 
 // Update challenge progress (for automatic tracking)
 router.post("/progress", authMiddleware, updateProgress);
+
+// Reset today's challenges (to regenerate with currency rewards)
+router.delete("/reset-today", authMiddleware, resetTodayChallenges);
 
 export default router;
