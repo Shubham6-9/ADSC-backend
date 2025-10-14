@@ -1,6 +1,12 @@
 // routes/leaderboard.routes.js
 import express from "express";
-import { getLeaderboard, getMyRank, getTopUsers } from "../controllers/leaderboard.controller.js";
+import { 
+  getLeaderboard, 
+  getMyRank, 
+  getTopUsers,
+  getStreakLeaderboard,
+  getMyStreakRank
+} from "../controllers/leaderboard.controller.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
@@ -13,5 +19,11 @@ router.get("/my-rank", authMiddleware, getMyRank);
 
 // Get top N users
 router.get("/top", getTopUsers);
+
+// Streak leaderboard
+router.get("/streak", getStreakLeaderboard);
+
+// Get authenticated user's streak rank
+router.get("/my-streak-rank", authMiddleware, getMyStreakRank);
 
 export default router;

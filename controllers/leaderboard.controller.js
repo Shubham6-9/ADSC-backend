@@ -145,3 +145,98 @@ export const getTopUsers = async (req, res) => {
     });
   }
 };
+
+/**
+ * GET /api/user/leaderboard/streak
+ * Returns leaderboard sorted by current streak (highest first)
+ * Query params:
+ *  - limit (default 50, max 100)
+ */
+export const getStreakLeaderboard = async (req, res) => {
+  try {
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+
+    const users = await User.find()
+      .select("username currentStreak longestStreak level xp country")
+      .sort({ currentStreak: -1, longestStreak: -1 })
+      .limit(limit)
+      .lean();
+
+    const leaderboard = users.map((user, index) => ({
+      rank: index + 1,
+      username: user.username,
+      currentStreak: user.currentStreak || 0,
+      longestStreak: user.longestStreak || 0,
+      level: user.level,
+      xp: user.xp,
+      country: user.country,
+    }));
+
+    return res.json({
+      success: true,
+      count: leaderboard.length,
+      leaderboard,
+    });
+  } catch (err) {
+    console.error("getStreakLeaderboard error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch streak leaderboard",
+      error: err.message,
+    });
+  }
+};
+
+/**
+ * GET /api/user/leaderboard/my-streak-rank
+ * Returns the authenticated user's rank on the streak leaderboard
+ */
+export const getMyStreakRank = async (req, res) => {
+  try {
+    const userId = req.user && req.user.id;
+    if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+    const currentUser = await User.findById(userId)
+      .select("username currentStreak longestStreak level xp country")
+      .lean();
+    
+    if (!currentUser) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // Count how many users have higher current streak
+    const rank = await User.countDocuments({
+      $or: [
+        { currentStreak: { $gt: currentUser.currentStreak || 0 } },
+        { 
+          currentStreak: currentUser.currentStreak || 0, 
+          longestStreak: { $gt: currentUser.longestStreak || 0 } 
+        },
+      ],
+    }) + 1;
+
+    const totalUsers = await User.countDocuments();
+
+    return res.json({
+      success: true,
+      myRank: {
+        rank,
+        username: currentUser.username,
+        currentStreak: currentUser.currentStreak || 0,
+        longestStreak: currentUser.longestStreak || 0,
+        level: currentUser.level,
+        xp: currentUser.xp,
+        country: currentUser.country,
+        totalUsers,
+        percentile: ((totalUsers - rank + 1) / totalUsers * 100).toFixed(2),
+      },
+    });
+  } catch (err) {
+    console.error("getMyStreakRank error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch streak rank",
+      error: err.message,
+    });
+  }
+};
