@@ -1,9 +1,10 @@
 import express from "express";
 import {
+  getChallengeTemplates,
   createFriendChallenge,
   acceptFriendChallenge,
   rejectFriendChallenge,
-  completeFriendChallenge,
+  checkChallengeCompletion,
   cancelFriendChallenge,
   getMyChallenges,
   getPendingChallenges,
@@ -22,11 +23,14 @@ router.use(authMiddleware);
 router.get("/currency/balance", getCurrencyBalance);
 router.get("/currency/transactions", getCurrencyTransactions);
 
+// Challenge templates
+router.get("/templates", getChallengeTemplates);
+
 // Challenge management
 router.post("/create", createFriendChallenge);
 router.post("/:challengeId/accept", acceptFriendChallenge);
 router.post("/:challengeId/reject", rejectFriendChallenge);
-router.post("/:challengeId/complete", completeFriendChallenge);
+router.get("/:challengeId/check", checkChallengeCompletion); // Auto-verify
 router.post("/:challengeId/cancel", cancelFriendChallenge);
 
 // Get challenges

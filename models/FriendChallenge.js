@@ -77,6 +77,23 @@ const friendChallengeSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed, // Can store any completion proof
       default: null,
     },
+    // Baseline data stored when challenge is accepted (for verification)
+    xpAtStart: {
+      type: Number,
+      default: null,
+    },
+    levelAtStart: {
+      type: Number,
+      default: null,
+    },
+    friendsCountAtStart: {
+      type: Number,
+      default: null,
+    },
+    verificationCriteria: {
+      type: mongoose.Schema.Types.Mixed, // Stores the challenge verification requirements
+      required: true,
+    },
   },
   { timestamps: true }
 );

@@ -2,6 +2,8 @@ import FriendChallenge from "../models/FriendChallenge.js";
 import User from "../models/User.js";
 import CurrencyTransaction from "../models/CurrencyTransaction.js";
 import mongoose from "mongoose";
+import { getChallengeTemplate, FRIEND_CHALLENGE_TEMPLATES } from "../config/friendChallengeTemplates.js";
+import { verifyChallengeCompletion } from "../services/challengeVerification.service.js";
 
 /**
  * Helper: Create currency transaction
@@ -30,8 +32,24 @@ async function createTransaction(userId, amount, type, description, relatedChall
 }
 
 /**
+ * GET /api/user/friend-challenges/templates
+ * Get all available challenge templates
+ */
+export const getChallengeTemplates = async (req, res) => {
+  try {
+    return res.status(200).json({
+      success: true,
+      templates: FRIEND_CHALLENGE_TEMPLATES,
+    });
+  } catch (err) {
+    console.error("getChallengeTemplates error:", err);
+    return res.status(500).json({ success: false, message: "Failed to get templates" });
+  }
+};
+
+/**
  * POST /api/user/friend-challenges/create
- * Create a new friend challenge with wager
+ * Create a new friend challenge using a template
  */
 export const createFriendChallenge = async (req, res) => {
   try {
@@ -40,17 +58,20 @@ export const createFriendChallenge = async (req, res) => {
 
     const {
       challengedUserId,
-      challengeType,
-      title,
-      description,
+      templateId,
       wagerAmount,
-      daysToComplete,
-      targetValue,
+      daysToComplete, // Optional: override template suggestion
     } = req.body;
 
     // Validation
-    if (!challengedUserId || !challengeType || !title || !description || !wagerAmount || !daysToComplete) {
-      return res.status(400).json({ success: false, message: "Missing required fields" });
+    if (!challengedUserId || !templateId || !wagerAmount) {
+      return res.status(400).json({ success: false, message: "Missing required fields: challengedUserId, templateId, wagerAmount" });
+    }
+
+    // Get challenge template
+    const template = getChallengeTemplate(templateId);
+    if (!template) {
+      return res.status(400).json({ success: false, message: "Invalid challenge template ID" });
     }
 
     if (wagerAmount < 1) {
@@ -83,21 +104,23 @@ export const createFriendChallenge = async (req, res) => {
       });
     }
 
-    // Create challenge
+    // Create challenge from template
     const now = new Date();
     const acceptDeadline = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
-    const completionDeadline = new Date(now.getTime() + daysToComplete * 24 * 60 * 60 * 1000);
+    const days = daysToComplete || template.suggestedDays;
+    const completionDeadline = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
 
     const challenge = await FriendChallenge.create({
       challenger: challengerId,
       challenged: challengedUserId,
-      challengeType,
-      title,
-      description,
+      challengeType: template.category,
+      title: template.title,
+      description: template.description,
       wagerAmount,
       acceptDeadline,
       completionDeadline,
-      targetValue: targetValue || null,
+      targetValue: template.verificationCriteria.targetValue || 0,
+      verificationCriteria: template.verificationCriteria,
       status: "pending",
     });
 
@@ -158,6 +181,11 @@ export const acceptFriendChallenge = async (req, res) => {
       });
     }
 
+    // Store baseline data for verification
+    challenge.xpAtStart = user.xp || 0;
+    challenge.levelAtStart = user.level || 1;
+    challenge.friendsCountAtStart = user.friends?.length || 0;
+    
     // Accept challenge
     challenge.status = "accepted";
     challenge.acceptedAt = new Date();
@@ -165,7 +193,7 @@ export const acceptFriendChallenge = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Challenge accepted! Complete it before the deadline.",
+      message: "Challenge accepted! Complete it before the deadline. Progress is tracked automatically.",
       challenge,
     });
   } catch (err) {
@@ -216,10 +244,10 @@ export const rejectFriendChallenge = async (req, res) => {
 };
 
 /**
- * POST /api/user/friend-challenges/:challengeId/complete
- * Mark challenge as completed
+ * GET /api/user/friend-challenges/:challengeId/check
+ * Check if challenge is completed (auto-verification)
  */
-export const completeFriendChallenge = async (req, res) => {
+export const checkChallengeCompletion = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -231,7 +259,6 @@ export const completeFriendChallenge = async (req, res) => {
     }
 
     const { challengeId } = req.params;
-    const { proofData } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(challengeId)) {
       await session.abortTransaction();
@@ -244,15 +271,15 @@ export const completeFriendChallenge = async (req, res) => {
       return res.status(404).json({ success: false, message: "Challenge not found" });
     }
 
-    // Only the challenged user can complete
-    if (challenge.challenged.toString() !== userId) {
+    // Can be checked by either participant
+    if (challenge.challenged.toString() !== userId && challenge.challenger.toString() !== userId) {
       await session.abortTransaction();
-      return res.status(403).json({ success: false, message: "Only the challenged user can complete this" });
+      return res.status(403).json({ success: false, message: "Not authorized to view this challenge" });
     }
 
     if (challenge.status !== "accepted") {
       await session.abortTransaction();
-      return res.status(400).json({ success: false, message: `Challenge is ${challenge.status}, cannot complete` });
+      return res.status(400).json({ success: false, message: `Challenge is ${challenge.status}, cannot check completion` });
     }
 
     // Check if deadline has passed
@@ -268,7 +295,7 @@ export const completeFriendChallenge = async (req, res) => {
         challenge.challenged,
         -challenge.wagerAmount,
         "challenge_loss",
-        `Lost challenge: ${challenge.title}`,
+        `Lost challenge: ${challenge.title} (time expired)`,
         challenge._id,
         challenge.challenger
       );
@@ -277,7 +304,7 @@ export const completeFriendChallenge = async (req, res) => {
         challenge.challenger,
         challenge.wagerAmount,
         "challenge_win",
-        `Won challenge against ${(await User.findById(challenge.challenged).session(session)).username}`,
+        `Won challenge (opponent failed): ${challenge.title}`,
         challenge._id,
         challenge.challenged
       );
@@ -286,48 +313,76 @@ export const completeFriendChallenge = async (req, res) => {
 
       return res.status(200).json({
         success: false,
-        message: "Challenge deadline has passed. You failed the challenge.",
+        completed: false,
+        failed: true,
+        message: "Challenge deadline has passed. Challenge failed.",
         challenge,
       });
     }
 
-    // Challenge completed successfully
-    challenge.status = "completed";
-    challenge.completedAt = new Date();
-    challenge.winner = challenge.challenged;
-    challenge.proofData = proofData || null;
-    await challenge.save({ session });
-
-    // Transfer currency: deduct from challenger, add to challenged
-    await createTransaction(
-      challenge.challenger,
-      -challenge.wagerAmount,
-      "challenge_loss",
-      `Lost challenge to ${(await User.findById(challenge.challenged).session(session)).username}`,
-      challenge._id,
-      challenge.challenged
-    );
-
-    await createTransaction(
-      challenge.challenged,
-      challenge.wagerAmount,
-      "challenge_win",
-      `Won challenge: ${challenge.title}`,
-      challenge._id,
-      challenge.challenger
-    );
-
-    await session.commitTransaction();
-
-    return res.status(200).json({
-      success: true,
-      message: `Congratulations! You won ${challenge.wagerAmount} coins!`,
+    // Auto-verify completion using verification service
+    const verification = await verifyChallengeCompletion(
       challenge,
-    });
+      challenge.challenged.toString(),
+      challenge.acceptedAt
+    );
+
+    // Update progress
+    challenge.currentProgress = verification.progress;
+
+    if (verification.completed) {
+      // Challenge completed successfully!
+      challenge.status = "completed";
+      challenge.completedAt = new Date();
+      challenge.winner = challenge.challenged;
+      challenge.proofData = verification.details;
+      await challenge.save({ session });
+
+      // Transfer currency: deduct from challenger, add to challenged
+      await createTransaction(
+        challenge.challenger,
+        -challenge.wagerAmount,
+        "challenge_loss",
+        `Lost challenge to ${(await User.findById(challenge.challenged).session(session)).username}`,
+        challenge._id,
+        challenge.challenged
+      );
+
+      await createTransaction(
+        challenge.challenged,
+        challenge.wagerAmount,
+        "challenge_win",
+        `Won challenge: ${challenge.title}`,
+        challenge._id,
+        challenge.challenger
+      );
+
+      await session.commitTransaction();
+
+      return res.status(200).json({
+        success: true,
+        completed: true,
+        message: `Congratulations! Challenge completed! You won ${challenge.wagerAmount} coins!`,
+        challenge,
+        verification,
+      });
+    } else {
+      // Not yet completed
+      await challenge.save({ session });
+      await session.commitTransaction();
+
+      return res.status(200).json({
+        success: true,
+        completed: false,
+        message: "Challenge not yet completed. Keep going!",
+        challenge,
+        verification,
+      });
+    }
   } catch (err) {
     await session.abortTransaction();
-    console.error("completeFriendChallenge error:", err);
-    return res.status(500).json({ success: false, message: "Failed to complete challenge" });
+    console.error("checkChallengeCompletion error:", err);
+    return res.status(500).json({ success: false, message: "Failed to check challenge completion" });
   } finally {
     session.endSession();
   }
