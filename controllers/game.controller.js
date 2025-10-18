@@ -273,8 +273,13 @@ export const startGameSession = async (req, res) => {
     });
   } catch (err) {
     await session.abortTransaction();
-    console.error("startGameSession error:", err);
-    return res.status(500).json({ success: false, message: "Failed to start game session" });
+    console.error("❌ startGameSession error:", err);
+    console.error("Error details:", err.message);
+    return res.status(500).json({ 
+      success: false, 
+      message: "Failed to start game session",
+      error: err.message 
+    });
   } finally {
     session.endSession();
   }
