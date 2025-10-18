@@ -21,6 +21,8 @@ const currencyTransactionSchema = new mongoose.Schema(
         "challenge_wager",
         "challenge_refund",
         "admin_adjustment",
+        "game_entry",
+        "game_reward",
       ],
     },
     balanceBefore: {
