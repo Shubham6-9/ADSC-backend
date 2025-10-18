@@ -8,12 +8,12 @@ import { verifyChallengeCompletion } from "../services/challengeVerification.ser
 /**
  * Helper: Create currency transaction
  */
-async function createTransaction(userId, amount, type, description, relatedChallenge = null, relatedUser = null) {
-  const user = await User.findById(userId);
+async function createTransaction(userId, amount, type, description, relatedChallenge = null, relatedUser = null, session = null) {
+  const user = await User.findById(userId).session(session);
   const balanceBefore = user.virtualCurrency;
   const balanceAfter = balanceBefore + amount;
 
-  const transaction = await CurrencyTransaction.create({
+  const transaction = await CurrencyTransaction.create([{
     user: userId,
     amount,
     type,
@@ -22,13 +22,13 @@ async function createTransaction(userId, amount, type, description, relatedChall
     description,
     relatedChallenge,
     relatedUser,
-  });
+  }], { session });
 
   // Update user balance
   user.virtualCurrency = balanceAfter;
-  await user.save();
+  await user.save({ session });
 
-  return transaction;
+  return transaction[0];
 }
 
 /**
@@ -297,7 +297,8 @@ export const checkChallengeCompletion = async (req, res) => {
         "challenge_loss",
         `Lost challenge: ${challenge.title} (time expired)`,
         challenge._id,
-        challenge.challenger
+        challenge.challenger,
+        session
       );
 
       await createTransaction(
@@ -306,7 +307,8 @@ export const checkChallengeCompletion = async (req, res) => {
         "challenge_win",
         `Won challenge (opponent failed): ${challenge.title}`,
         challenge._id,
-        challenge.challenged
+        challenge.challenged,
+        session
       );
 
       await session.commitTransaction();
@@ -345,7 +347,8 @@ export const checkChallengeCompletion = async (req, res) => {
         "challenge_loss",
         `Lost challenge to ${(await User.findById(challenge.challenged).session(session)).username}`,
         challenge._id,
-        challenge.challenged
+        challenge.challenged,
+        session
       );
 
       await createTransaction(
@@ -354,7 +357,8 @@ export const checkChallengeCompletion = async (req, res) => {
         "challenge_win",
         `Won challenge: ${challenge.title}`,
         challenge._id,
-        challenge.challenger
+        challenge.challenger,
+        session
       );
 
       await session.commitTransaction();
@@ -611,7 +615,8 @@ export const checkExpiredChallenges = async () => {
           "challenge_loss",
           `Failed challenge: ${challenge.title} (deadline passed)`,
           challenge._id,
-          challenge.challenger
+          challenge.challenger,
+          session
         );
 
         await createTransaction(
@@ -620,7 +625,8 @@ export const checkExpiredChallenges = async () => {
           "challenge_win",
           `Won challenge (opponent failed to complete)`,
           challenge._id,
-          challenge.challenged
+          challenge.challenged,
+          session
         );
 
         await session.commitTransaction();
