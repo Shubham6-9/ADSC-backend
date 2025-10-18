@@ -40,14 +40,15 @@ export const getAvailableGames = async (req, res) => {
 
     const user = await User.findById(userId);
     
-    const games = await Game.find({ isActive: true })
-      .sort({ difficulty: 1 })
+    // Fetch ALL games (both active and inactive) so users can see "Coming Soon" games
+    const games = await Game.find({})
+      .sort({ minimumLevel: 1, difficulty: 1 })
       .lean();
 
     // Check which games user can access based on level
     const gamesWithAccess = games.map(game => ({
       ...game,
-      canAccess: user.level >= game.minimumLevel,
+      canAccess: (user.level || 1) >= game.minimumLevel,
       userBalance: user.virtualCurrency,
     }));
 
