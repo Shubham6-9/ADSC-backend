@@ -9,11 +9,11 @@ import mongoose from "mongoose";
  * Helper: Create currency transaction for games
  */
 async function createGameTransaction(userId, amount, type, description, sessionId = null, session = null) {
-  const user = await User.findById(userId).session(session);
+  const user = await User.findById(userId);
   const balanceBefore = user.virtualCurrency;
   const balanceAfter = balanceBefore + amount;
 
-  const transaction = await CurrencyTransaction.create([{
+  const transaction = await CurrencyTransaction.create({
     user: userId,
     amount,
     type,
@@ -21,12 +21,12 @@ async function createGameTransaction(userId, amount, type, description, sessionI
     balanceAfter,
     description,
     relatedChallenge: sessionId,
-  }], { session });
+  });
 
   user.virtualCurrency = balanceAfter;
-  await user.save({ session });
+  await user.save();
 
-  return transaction[0];
+  return transaction;
 }
 
 /**
@@ -290,45 +290,43 @@ export const startGameSession = async (req, res) => {
  * Complete a game session and calculate rewards
  */
 export const completeGameSession = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
     const userId = req.user && req.user.id;
     if (!userId) {
-      await session.abortTransaction();
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
     const { gameType } = req.params;
     const { sessionId, score, correctAnswers, wrongAnswers, timeSpentSeconds, gameData } = req.body;
 
+    console.log('🎮 Complete game request:', { userId, gameType, sessionId, score });
+
     if (!sessionId || score === undefined) {
-      await session.abortTransaction();
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
-    const gameSession = await GameSession.findById(sessionId).session(session);
+    const gameSession = await GameSession.findById(sessionId);
     if (!gameSession) {
-      await session.abortTransaction();
+      console.error('❌ Game session not found:', sessionId);
       return res.status(404).json({ success: false, message: "Game session not found" });
     }
 
     if (gameSession.user.toString() !== userId) {
-      await session.abortTransaction();
       return res.status(403).json({ success: false, message: "Not authorized" });
     }
 
     if (gameSession.status !== "in_progress") {
-      await session.abortTransaction();
+      console.error('❌ Game already completed:', gameSession.status);
       return res.status(400).json({ success: false, message: "Game session already completed" });
     }
 
-    const game = await Game.findOne({ gameType }).session(session);
+    const game = await Game.findOne({ gameType });
     if (!game) {
-      await session.abortTransaction();
+      console.error('❌ Game not found:', gameType);
       return res.status(404).json({ success: false, message: "Game not found" });
     }
+
+    console.log('✅ Found game and session, calculating rewards...');
 
     // Calculate reward based on score
     const scorePercentage = (score / gameSession.maxScore) * 100;
@@ -352,6 +350,8 @@ export const completeGameSession = async (req, res) => {
 
     const netProfit = rewardAmount - gameSession.entryFee;
 
+    console.log('💰 Calculated reward:', { rewardAmount, netProfit, scorePercentage });
+
     // Update session
     gameSession.status = "completed";
     gameSession.completedAt = new Date();
@@ -362,24 +362,30 @@ export const completeGameSession = async (req, res) => {
     gameSession.rewardAmount = rewardAmount;
     gameSession.netProfit = netProfit;
     gameSession.gameData = gameData || {};
-    await gameSession.save({ session });
+    await gameSession.save();
+
+    console.log('✅ Game session saved');
 
     // Add reward to user balance if any
     if (rewardAmount > 0) {
+      console.log('💵 Creating transaction for reward...');
       await createGameTransaction(
         userId,
         rewardAmount,
         "game_reward",
         `Won ${rewardAmount} coins in ${game.name} (Score: ${score})`,
         sessionId,
-        session
+        null
       );
+      console.log('✅ Transaction created');
     }
 
     // Update leaderboard
-    await updateLeaderboard(userId, gameType, gameSession, session);
+    console.log('📊 Updating leaderboard...');
+    await updateLeaderboard(userId, gameType, gameSession, null);
+    console.log('✅ Leaderboard updated');
 
-    await session.commitTransaction();
+    console.log('🎉 Game completed successfully!');
 
     return res.status(200).json({
       success: true,
@@ -392,7 +398,6 @@ export const completeGameSession = async (req, res) => {
       scorePercentage: scorePercentage.toFixed(1),
     });
   } catch (err) {
-    await session.abortTransaction();
     console.error("❌ completeGameSession error:", err);
     console.error("Error details:", err.message);
     console.error("Stack trace:", err.stack);
@@ -401,8 +406,6 @@ export const completeGameSession = async (req, res) => {
       message: "Failed to complete game session",
       error: err.message 
     });
-  } finally {
-    session.endSession();
   }
 };
 
@@ -432,7 +435,7 @@ async function updateLeaderboard(userId, gameType, gameSession, session) {
           highestScore: gameSession.score,
         },
       },
-      { upsert: true, new: true, session }
+      { upsert: true, new: true }
     );
 
     // Calculate averages
@@ -448,7 +451,7 @@ async function updateLeaderboard(userId, gameType, gameSession, session) {
       }
     }
 
-    await leaderboard.save({ session });
+    await leaderboard.save();
   }
 }
 
