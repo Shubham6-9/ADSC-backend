@@ -6,7 +6,7 @@ const triviaQuestionSchema = new mongoose.Schema(
       type: String,
       required: true,
       enum: [
-        // Core / user-provided
+        // Core / original
         "stock_market",
         "income_tax",
         "gst",
@@ -16,8 +16,7 @@ const triviaQuestionSchema = new mongoose.Schema(
         "cryptocurrency",
         "financial_planning",
         "financial_literacy",
-
-        // Categories introduced in your original array & added questions
+        // added / common variations
         "credit_cards",
         "real_estate",
         "investments",
@@ -28,26 +27,23 @@ const triviaQuestionSchema = new mongoose.Schema(
         "budgeting",
         "entrepreneurship",
         "credit_score",
-
-        // Fintech / Payments / Platforms
+        // fintech / payments / platforms
         "fintech",
         "fintech_payments",
         "payments",
-        "UPI",              // in case used as a category label somewhere
+        "UPI",
         "NFO_IPO",
         "SIP",
         "index_funds",
         "ETFs",
-
-        // Loans / Home / Car / Education
+        // loans / types
         "loans",
         "home_loans",
         "car_loans",
         "education_finance",
-        "student_loans",    // if you use this phrasing
+        "student_loans",
         "loan_products",
-
-        // Market types / instruments
+        // market instruments / trading
         "derivatives",
         "commodities",
         "forex",
@@ -57,10 +53,7 @@ const triviaQuestionSchema = new mongoose.Schema(
         "dividends",
         "stock_splits",
         "buyback",
-        "index_funds",
-        "stock_splits",
-
-        // Corporate / Accounting / Audit
+        // corporate / accounting / audits
         "accounting",
         "audits",
         "corporate_finance",
@@ -68,15 +61,15 @@ const triviaQuestionSchema = new mongoose.Schema(
         "risk_management",
         "compliance",
         "governance",
-
-        // Regulators / Institutions / Schemes
+        // regulators / schemes / institutions
         "RBI",
         "SEBI",
         "taxation",
         "tax_procedures",
-        "TDS",              // optional label
-        "PAN",              // optional label
-        "PF",               // optional label (Provident Fund)
+        "tax_planning",
+        "TDS",
+        "PAN",
+        "PF",
         "saving_instruments",
         "saving_schemes",
         "sustainable_finance",
@@ -84,30 +77,36 @@ const triviaQuestionSchema = new mongoose.Schema(
         "green_finance",
         "startup_finance",
         "venture_capital",
-
-        // Wealth / Protection / Management
+        // wealth / protection / management
         "wealth_management",
         "wealth_protection",
         "retirement_products",
-        "saving_instruments",
         "alternative_investments",
         "private_equity",
-
-        // Consumer / Protection / Services
+        // consumer / services
         "consumer_protection",
         "banking_products",
-        "finserv",          // optional
+        "finserv",
         "credit_services",
-
-        // Misc / utility / catch-all
+        // misc / utility / catch-all
         "finals",
-        "financial_markets",
         "financial_goals",
         "personal_finance",
-        "payments",         // duplicate-safe
-        "misc"
-
+        "misc",
+        // synonyms & safe extras (in case of small typos in seed)
+        "taxes",
+        "tax_plan",
+        "taxplanning",
+        "credit cards",
+        "real-estate",
+        "stock market",
+        "financial markets",
+        "saving instruments",
+        "saving schemes",
+        "wealth_protection",
+        "financial_literacy_alt"
       ],
+
     },
     difficulty: {
       type: String,
