@@ -80,7 +80,7 @@ const COMPANY_TYPES = {
 // Get all companies for user
 export const getUserCompanies = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id || req.user._id;
 
     const companies = await Company.find({ user: userId, isActive: true })
       .sort({ slotNumber: 1 });
@@ -127,8 +127,11 @@ export const getCompanyTypes = async (req, res) => {
 // Create new company
 export const createCompany = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id || req.user._id; // JWT uses 'id', not '_id'
     const { name, type, initialInvestment } = req.body;
+    
+    console.log('🏢 Create company request:', { userId, name, type, initialInvestment });
+    console.log('req.user:', req.user);
 
     // Validate company type
     if (!COMPANY_TYPES[type]) {
@@ -150,6 +153,17 @@ export const createCompany = async (req, res) => {
     
     // Check user has enough coins for leveraged investment
     const user = await User.findById(userId);
+    
+    if (!user) {
+      console.error('User not found with ID:', userId);
+      return res.status(404).json({
+        success: false,
+        message: 'User not found. Please log in again.'
+      });
+    }
+    
+    console.log('User found:', user.email, 'Balance:', user.currency);
+    
     if (user.currency < coinsNeeded) {
       return res.status(400).json({
         success: false,
@@ -246,7 +260,7 @@ export const createCompany = async (req, res) => {
 // Make investment in company
 export const makeInvestment = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id || req.user._id;
     const { companyId, amount, investmentType = 'expansion' } = req.body;
 
     if (amount <= 0) {
@@ -321,7 +335,7 @@ export const makeInvestment = async (req, res) => {
 // Claim daily income
 export const claimIncome = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id || req.user._id;
     const { companyId } = req.body;
 
     const company = await Company.findOne({ _id: companyId, user: userId, isActive: true });
@@ -416,7 +430,7 @@ export const claimIncome = async (req, res) => {
 // Pay company tax
 export const payTax = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id || req.user._id;
     const { companyId } = req.body;
 
     const company = await Company.findOne({ _id: companyId, user: userId, isActive: true });
@@ -477,7 +491,7 @@ export const payTax = async (req, res) => {
 // Unlock new company slot
 export const unlockSlot = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id || req.user._id;
 
     let companySlot = await CompanySlot.findOne({ user: userId });
     if (!companySlot) {
@@ -537,7 +551,7 @@ export const unlockSlot = async (req, res) => {
 // Get company statistics
 export const getCompanyStats = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id || req.user._id;
     const { companyId } = req.params;
 
     const company = await Company.findOne({ _id: companyId, user: userId, isActive: true });
@@ -587,7 +601,7 @@ export const getCompanyStats = async (req, res) => {
 // Upgrade company
 export const upgradeCompany = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id || req.user._id;
     const { companyId, upgradeType } = req.body;
 
     if (!['income', 'growth', 'tax'].includes(upgradeType)) {
