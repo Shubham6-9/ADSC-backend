@@ -232,7 +232,14 @@ export const createCompany = async (req, res) => {
     });
   } catch (error) {
     console.error('Create company error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    console.error('Error stack:', error.stack);
+    console.error('Error message:', error.message);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error',
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
 
