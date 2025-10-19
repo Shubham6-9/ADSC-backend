@@ -74,7 +74,7 @@ const gameLeaderboardSchema = new mongoose.Schema(
 // Compound indexes for leaderboard queries
 gameLeaderboardSchema.index({ gameType: 1, period: 1, highestScore: -1 });
 gameLeaderboardSchema.index({ gameType: 1, period: 1, netProfit: -1 });
-gameLeaderboardSchema.index({ user: 1, gameType: 1, period: 1 }, { unique: true });
+gameLeaderboardSchema.index({ user: 1, gameType: 1, period: 1, periodDate: 1 }, { unique: true });
 gameLeaderboardSchema.index({ period: 1, periodDate: 1 });
 
 const GameLeaderboard = mongoose.model("GameLeaderboard", gameLeaderboardSchema);
