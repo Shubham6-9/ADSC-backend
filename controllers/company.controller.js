@@ -162,18 +162,18 @@ export const createCompany = async (req, res) => {
       });
     }
     
-    // Initialize currency if undefined
-    if (typeof user.currency !== 'number' || isNaN(user.currency)) {
-      user.currency = 0;
+    // Initialize virtualCurrency if undefined
+    if (typeof user.virtualCurrency !== 'number' || isNaN(user.virtualCurrency)) {
+      user.virtualCurrency = 0;
       await user.save();
     }
     
-    console.log('User found:', user.email, 'Balance:', user.currency);
+    console.log('User found:', user.email, 'Balance:', user.virtualCurrency);
     
-    if (user.currency < coinsNeeded) {
+    if (user.virtualCurrency < coinsNeeded) {
       return res.status(400).json({
         success: false,
-        message: `Insufficient coins. Need ${coinsNeeded} coins for ₹${initialInvestment.toLocaleString()} investment (10x leverage). You have ${user.currency} coins.`
+        message: `Insufficient coins. Need ${coinsNeeded} coins for ₹${initialInvestment.toLocaleString()} investment (10x leverage). You have ${user.virtualCurrency} coins.`
       });
     }
 
@@ -193,9 +193,9 @@ export const createCompany = async (req, res) => {
     }
 
     // Deduct actual coins (1/10th of investment due to leverage)
-    const balanceBefore = Number(user.currency);
-    user.currency = Number(user.currency) - Number(coinsNeeded);
-    const balanceAfter = Number(user.currency);
+    const balanceBefore = Number(user.virtualCurrency);
+    user.virtualCurrency = Number(user.virtualCurrency) - Number(coinsNeeded);
+    const balanceAfter = Number(user.virtualCurrency);
     await user.save();
 
     // Record transaction
@@ -250,7 +250,7 @@ export const createCompany = async (req, res) => {
         canClaim: false,
         currentProfit: 0
       },
-      userBalance: user.currency
+      userBalance: user.virtualCurrency
     });
   } catch (error) {
     console.error('Create company error:', error);
@@ -279,7 +279,7 @@ export const makeInvestment = async (req, res) => {
     const coinsNeeded = Math.floor(amount / INVESTMENT_LEVERAGE);
 
     const user = await User.findById(userId);
-    if (user.currency < coinsNeeded) {
+    if (user.virtualCurrency < coinsNeeded) {
       return res.status(400).json({ 
         success: false, 
         message: `Insufficient coins. Need ${coinsNeeded} coins for ₹${amount.toLocaleString()} investment (10x leverage)` 
@@ -294,9 +294,9 @@ export const makeInvestment = async (req, res) => {
     const valueBefore = company.currentValue;
 
     // Deduct actual coins (1/10th of investment due to leverage)
-    const invBalanceBefore = Number(user.currency);
-    user.currency = Number(user.currency) - Number(coinsNeeded);
-    const invBalanceAfter = Number(user.currency);
+    const invBalanceBefore = Number(user.virtualCurrency);
+    user.virtualCurrency = Number(user.virtualCurrency) - Number(coinsNeeded);
+    const invBalanceAfter = Number(user.virtualCurrency);
     await user.save();
 
     // Record transaction
@@ -334,7 +334,7 @@ export const makeInvestment = async (req, res) => {
         canClaim: company.canClaimIncome(),
         currentProfit: company.currentValue - company.totalInvestment
       },
-      userBalance: user.currency
+      userBalance: user.virtualCurrency
     });
   } catch (error) {
     console.error('Make investment error:', error);
@@ -387,9 +387,9 @@ export const claimIncome = async (req, res) => {
 
     // Award coins to user
     const user = await User.findById(userId);
-    const incomeBalanceBefore = Number(user.currency || 0);
-    user.currency = Number(user.currency || 0) + Number(coinsEarned);
-    const incomeBalanceAfter = Number(user.currency);
+    const incomeBalanceBefore = Number(user.virtualCurrency || 0);
+    user.virtualCurrency = Number(user.virtualCurrency || 0) + Number(coinsEarned);
+    const incomeBalanceAfter = Number(user.virtualCurrency);
     await user.save();
 
     // Record transaction
@@ -431,7 +431,7 @@ export const claimIncome = async (req, res) => {
         canClaim: false,
         currentProfit: company.currentValue - company.totalInvestment
       },
-      userBalance: user.currency
+      userBalance: user.virtualCurrency
     });
   } catch (error) {
     console.error('Claim income error:', error);
@@ -455,7 +455,7 @@ export const payTax = async (req, res) => {
     }
 
     const user = await User.findById(userId);
-    if (user.currency < company.pendingTax) {
+    if (user.virtualCurrency < company.pendingTax) {
       return res.status(400).json({
         success: false,
         message: 'Insufficient coins to pay tax'
@@ -465,9 +465,9 @@ export const payTax = async (req, res) => {
     const taxAmount = company.pendingTax;
 
     // Deduct coins
-    const taxBalanceBefore = Number(user.currency || 0);
-    user.currency = Number(user.currency || 0) - Number(taxAmount);
-    const taxBalanceAfter = Number(user.currency);
+    const taxBalanceBefore = Number(user.virtualCurrency || 0);
+    user.virtualCurrency = Number(user.virtualCurrency || 0) - Number(taxAmount);
+    const taxBalanceAfter = Number(user.virtualCurrency);
     await user.save();
 
     // Record transaction
@@ -494,7 +494,7 @@ export const payTax = async (req, res) => {
         ...company.toObject(),
         currentProfit: company.currentValue - company.totalInvestment
       },
-      userBalance: user.currency
+      userBalance: user.virtualCurrency
     });
   } catch (error) {
     console.error('Pay tax error:', error);
@@ -520,7 +520,7 @@ export const unlockSlot = async (req, res) => {
     }
 
     const user = await User.findById(userId);
-    if (!companySlot.canUnlockSlot(user.currency)) {
+    if (!companySlot.canUnlockSlot(user.virtualCurrency)) {
       return res.status(400).json({
         success: false,
         message: `Need ${companySlot.nextSlotCost} coins to unlock next slot`
@@ -530,9 +530,9 @@ export const unlockSlot = async (req, res) => {
     const { cost, newTotal } = companySlot.unlockSlot();
     
     // Deduct coins
-    const slotBalanceBefore = Number(user.currency || 0);
-    user.currency = Number(user.currency || 0) - Number(cost);
-    const slotBalanceAfter = Number(user.currency);
+    const slotBalanceBefore = Number(user.virtualCurrency || 0);
+    user.virtualCurrency = Number(user.virtualCurrency || 0) - Number(cost);
+    const slotBalanceAfter = Number(user.virtualCurrency);
     await user.save();
 
     await companySlot.save();
@@ -556,7 +556,7 @@ export const unlockSlot = async (req, res) => {
         available: companySlot.totalSlots - companySlot.usedSlots,
         nextSlotCost: companySlot.nextSlotCost
       },
-      userBalance: user.currency
+      userBalance: user.virtualCurrency
     });
   } catch (error) {
     console.error('Unlock slot error:', error);
@@ -606,7 +606,8 @@ export const getCompanyStats = async (req, res) => {
         roi: ((company.currentValue - company.totalInvestment) / company.totalInvestment * 100).toFixed(2)
       },
       recentInvestments: investments,
-      recentClaims: incomeClaims
+      recentClaims: incomeClaims,
+      userBalance: req.user.virtualCurrency
     });
   } catch (error) {
     console.error('Get stats error:', error);
@@ -633,7 +634,7 @@ export const upgradeCompany = async (req, res) => {
     const upgradeCost = Math.floor(5000 * Math.pow(1.5, company.level));
 
     const user = await User.findById(userId);
-    if (user.currency < upgradeCost) {
+    if (user.virtualCurrency < upgradeCost) {
       return res.status(400).json({
         success: false,
         message: `Need ${upgradeCost} coins for upgrade`
@@ -641,9 +642,9 @@ export const upgradeCompany = async (req, res) => {
     }
 
     // Deduct coins
-    const upgradeBalanceBefore = Number(user.currency || 0);
-    user.currency = Number(user.currency || 0) - Number(upgradeCost);
-    const upgradeBalanceAfter = Number(user.currency);
+    const upgradeBalanceBefore = Number(user.virtualCurrency || 0);
+    user.virtualCurrency = Number(user.virtualCurrency || 0) - Number(upgradeCost);
+    const upgradeBalanceAfter = Number(user.virtualCurrency);
     await user.save();
 
     // Record transaction
@@ -677,7 +678,7 @@ export const upgradeCompany = async (req, res) => {
         canClaim: company.canClaimIncome(),
         currentProfit: company.currentValue - company.totalInvestment
       },
-      userBalance: user.currency
+      userBalance: user.virtualCurrency
     });
   } catch (error) {
     console.error('Upgrade company error:', error);
