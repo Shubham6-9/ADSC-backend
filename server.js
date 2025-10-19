@@ -20,6 +20,7 @@ import friendsRoutes from "./routes/friends.routes.js";
 import friendChallengeRoutes from "./routes/friendChallenge.routes.js";
 import gameRoutes from "./routes/game.routes.js";
 import debugRoutes from "./routes/debug.routes.js";
+import companyRoutes from "./routes/company.routes.js";
 
 
 
@@ -50,6 +51,7 @@ app.use(express.json());
     app.use("/api/user/friends", friendsRoutes); // Friends routes
     app.use("/api/user/friend-challenges", friendChallengeRoutes); // Friend challenge routes
     app.use("/api/user/games", gameRoutes); // Games routes
+    app.use("/api/user/companies", companyRoutes); // Company management routes
     app.use("/api/user/debug", debugRoutes); // Debug routes
     app.use("/api/user", userRoutes); // User profile routes (must come AFTER specific routes)
 
