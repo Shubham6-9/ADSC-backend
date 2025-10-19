@@ -6,6 +6,7 @@ const triviaQuestionSchema = new mongoose.Schema(
       type: String,
       required: true,
       enum: [
+        // Core / user-provided
         "stock_market",
         "income_tax",
         "gst",
@@ -13,62 +14,99 @@ const triviaQuestionSchema = new mongoose.Schema(
         "banking",
         "insurance",
         "cryptocurrency",
-        "real_estate",
         "financial_planning",
-        "general_finance",
-        'credit_cards',
-        'real_estate',
-        'investments',
-        'retirement',
-        'bonds',
-        'debt',
-        'savings',
-        'budgeting',
-        'entrepreneurship',
-        'credit_score',
-        'fintech',
-        'payments',
-        'RBI',
-        'SEBI',
-        'taxation',
-        'startup_finance',
-        'ESG',
-        'fintech_payments',
-        'loans',
-        'home_loans',
-        'car_loans',
-        'education_finance',
-        'wealth_management',
-        'alternative_investments',
-        'SIP',
-        'NFO_IPO',
-        'dividends',
-        'stock_splits',
-        'buyback',
-        'index_funds',
-        'ETFs',
-        'arbitrage',
-        'inflation',
-        'interest_rates',
-        'derivatives',
-        'commodities',
-        'forex',
-        'accounting',
-        'audits',
-        'corporate_finance',
-        'financial_markets',
-        'risk_management',
-        'compliance',
-        'loans',
-        'saving_instruments',
-        'tax_procedures',
-        'consumer_protection',
-        'retirement_products',
-        'wealth_protection',
-        'banking_products',
-        'credit_score',
-        'finals',
-        'financial_literacy',
+        "financial_literacy",
+
+        // Categories introduced in your original array & added questions
+        "credit_cards",
+        "real_estate",
+        "investments",
+        "retirement",
+        "bonds",
+        "debt",
+        "savings",
+        "budgeting",
+        "entrepreneurship",
+        "credit_score",
+
+        // Fintech / Payments / Platforms
+        "fintech",
+        "fintech_payments",
+        "payments",
+        "UPI",              // in case used as a category label somewhere
+        "NFO_IPO",
+        "SIP",
+        "index_funds",
+        "ETFs",
+
+        // Loans / Home / Car / Education
+        "loans",
+        "home_loans",
+        "car_loans",
+        "education_finance",
+        "student_loans",    // if you use this phrasing
+        "loan_products",
+
+        // Market types / instruments
+        "derivatives",
+        "commodities",
+        "forex",
+        "arbitrage",
+        "inflation",
+        "interest_rates",
+        "dividends",
+        "stock_splits",
+        "buyback",
+        "index_funds",
+        "stock_splits",
+
+        // Corporate / Accounting / Audit
+        "accounting",
+        "audits",
+        "corporate_finance",
+        "financial_markets",
+        "risk_management",
+        "compliance",
+        "governance",
+
+        // Regulators / Institutions / Schemes
+        "RBI",
+        "SEBI",
+        "taxation",
+        "tax_procedures",
+        "TDS",              // optional label
+        "PAN",              // optional label
+        "PF",               // optional label (Provident Fund)
+        "saving_instruments",
+        "saving_schemes",
+        "sustainable_finance",
+        "ESG",
+        "green_finance",
+        "startup_finance",
+        "venture_capital",
+
+        // Wealth / Protection / Management
+        "wealth_management",
+        "wealth_protection",
+        "retirement_products",
+        "saving_instruments",
+        "alternative_investments",
+        "private_equity",
+
+        // Consumer / Protection / Services
+        "consumer_protection",
+        "banking_products",
+        "finserv",          // optional
+        "credit_services",
+
+        // Misc / utility / catch-all
+        "finals",
+        "financial_markets",
+        "financial_goals",
+        "personal_finance",
+        "payments",         // duplicate-safe
+        "misc"
+
       ],
     },
     difficulty: {
