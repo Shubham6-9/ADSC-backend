@@ -11,6 +11,9 @@ import {
   getTriviaQuestions,
   submitTriviaAnswers,
   getTriviaCategories,
+  getTriviaSets,
+  getSetQuestions,
+  completeSet,
 } from "../controllers/trivia.controller.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 
@@ -21,6 +24,9 @@ router.get("/", authMiddleware, getAvailableGames);
 router.get("/my-sessions", authMiddleware, getMyGameSessions);
 
 // Trivia-specific routes (MUST come before /:gameType routes)
+router.get("/trivia/sets", authMiddleware, getTriviaSets);
+router.get("/trivia/set/:setNumber/questions", authMiddleware, getSetQuestions);
+router.post("/trivia/set/complete", authMiddleware, completeSet);
 router.get("/trivia/questions", authMiddleware, getTriviaQuestions);
 router.post("/trivia/submit", authMiddleware, submitTriviaAnswers);
 router.get("/trivia/categories", authMiddleware, getTriviaCategories);

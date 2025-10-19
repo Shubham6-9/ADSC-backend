@@ -1,5 +1,6 @@
 import TriviaQuestion from "../models/TriviaQuestion.js";
 import GameSession from "../models/GameSession.js";
+import TriviaSetCompletion from "../models/TriviaSetCompletion.js";
 import mongoose from "mongoose";
 
 /**
@@ -191,5 +192,188 @@ export const getTriviaCategories = async (req, res) => {
   } catch (err) {
     console.error("getTriviaCategories error:", err);
     return res.status(500).json({ success: false, message: "Failed to get categories" });
+  }
+};
+
+/**
+ * GET /api/user/games/trivia/sets
+ * Get all question sets with completion status
+ */
+export const getTriviaSets = async (req, res) => {
+  try {
+    const userId = req.user && req.user.id;
+    if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+    // Get total question count
+    const totalQuestions = await TriviaQuestion.countDocuments({ isActive: true });
+    const totalSets = Math.ceil(totalQuestions / 10);
+
+    // Get all questions sorted by ID to create consistent sets
+    const allQuestions = await TriviaQuestion.find({ isActive: true })
+      .sort({ _id: 1 })
+      .select('category difficulty');
+
+    // Get user's completed sets
+    const completedSets = await TriviaSetCompletion.find({ 
+      user: userId,
+      accuracy: { $gte: 70 }
+    }).select('setNumber accuracy score');
+
+    const completedSetNumbers = new Set(completedSets.map(cs => cs.setNumber));
+
+    // Create set metadata
+    const sets = [];
+    for (let i = 0; i < totalSets; i++) {
+      const setNumber = i + 1;
+      const startIdx = i * 10;
+      const endIdx = Math.min(startIdx + 10, totalQuestions);
+      const setQuestions = allQuestions.slice(startIdx, endIdx);
+
+      const categories = [...new Set(setQuestions.map(q => q.category))];
+      const difficulties = {
+        easy: setQuestions.filter(q => q.difficulty === 'easy').length,
+        medium: setQuestions.filter(q => q.difficulty === 'medium').length,
+        hard: setQuestions.filter(q => q.difficulty === 'hard').length,
+      };
+
+      const completion = completedSets.find(cs => cs.setNumber === setNumber);
+
+      sets.push({
+        setNumber,
+        totalQuestions: setQuestions.length,
+        categories,
+        difficulties,
+        isCompleted: completedSetNumbers.has(setNumber),
+        completion: completion ? {
+          accuracy: completion.accuracy,
+          score: completion.score,
+        } : null,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      sets,
+      totalSets,
+    });
+  } catch (err) {
+    console.error("getTriviaSets error:", err);
+    return res.status(500).json({ success: false, message: "Failed to get sets" });
+  }
+};
+
+/**
+ * GET /api/user/games/trivia/set/:setNumber/questions
+ * Get questions for a specific set
+ */
+export const getSetQuestions = async (req, res) => {
+  try {
+    const userId = req.user && req.user.id;
+    if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+    const { setNumber } = req.params;
+    const { sessionId } = req.query;
+
+    if (!sessionId) {
+      return res.status(400).json({ success: false, message: "Session ID required" });
+    }
+
+    // Verify session
+    const session = await GameSession.findById(sessionId);
+    if (!session || session.user.toString() !== userId) {
+      return res.status(403).json({ success: false, message: "Invalid session" });
+    }
+
+    if (session.status !== "in_progress") {
+      return res.status(400).json({ success: false, message: "Session not active" });
+    }
+
+    // Get all questions sorted consistently
+    const allQuestions = await TriviaQuestion.find({ isActive: true }).sort({ _id: 1 });
+    
+    // Calculate set range
+    const setNum = parseInt(setNumber);
+    const startIdx = (setNum - 1) * 10;
+    const endIdx = startIdx + 10;
+    
+    const setQuestions = allQuestions.slice(startIdx, endIdx);
+
+    // Sanitize questions (remove correct answers)
+    const sanitizedQuestions = setQuestions.map(q => ({
+      _id: q._id,
+      category: q.category,
+      difficulty: q.difficulty,
+      question: q.question,
+      options: q.options.map(opt => ({ text: opt.text })),
+      points: q.points,
+    }));
+
+    // Store set number in session metadata
+    await GameSession.findByIdAndUpdate(sessionId, {
+      $set: { 'gameData.setNumber': setNum }
+    });
+
+    return res.status(200).json({
+      success: true,
+      questions: sanitizedQuestions,
+      setNumber: setNum,
+      totalQuestions: sanitizedQuestions.length,
+    });
+  } catch (err) {
+    console.error("getSetQuestions error:", err);
+    return res.status(500).json({ success: false, message: "Failed to get set questions" });
+  }
+};
+
+/**
+ * POST /api/user/games/trivia/set/complete
+ * Track completion of a trivia set
+ */
+export const completeSet = async (req, res) => {
+  try {
+    const userId = req.user && req.user.id;
+    if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+    const { setNumber, accuracy, score, correctAnswers, totalQuestions } = req.body;
+
+    if (!setNumber || accuracy === undefined) {
+      return res.status(400).json({ success: false, message: "Invalid data" });
+    }
+
+    // Only record if accuracy is 70% or higher
+    if (accuracy >= 70) {
+      // Check if user already completed this set
+      const existing = await TriviaSetCompletion.findOne({ user: userId, setNumber });
+
+      if (existing) {
+        // Update if new score/accuracy is better
+        if (accuracy > existing.accuracy) {
+          existing.accuracy = accuracy;
+          existing.score = score;
+          existing.correctAnswers = correctAnswers;
+          existing.totalQuestions = totalQuestions;
+          await existing.save();
+        }
+      } else {
+        // Create new completion record
+        await TriviaSetCompletion.create({
+          user: userId,
+          setNumber,
+          accuracy,
+          score,
+          correctAnswers,
+          totalQuestions,
+        });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: accuracy >= 70 ? "Set completed!" : "Complete with 70%+ to mark as done",
+      recorded: accuracy >= 70,
+    });
+  } catch (err) {
+    console.error("completeSet error:", err);
+    return res.status(500).json({ success: false, message: "Failed to record completion" });
   }
 };
