@@ -162,12 +162,18 @@ export const createCompany = async (req, res) => {
       });
     }
     
+    // Initialize currency if undefined
+    if (typeof user.currency !== 'number' || isNaN(user.currency)) {
+      user.currency = 0;
+      await user.save();
+    }
+    
     console.log('User found:', user.email, 'Balance:', user.currency);
     
     if (user.currency < coinsNeeded) {
       return res.status(400).json({
         success: false,
-        message: `Insufficient coins. Need ${coinsNeeded} coins for ₹${initialInvestment.toLocaleString()} investment (10x leverage)`
+        message: `Insufficient coins. Need ${coinsNeeded} coins for ₹${initialInvestment.toLocaleString()} investment (10x leverage). You have ${user.currency} coins.`
       });
     }
 
@@ -187,17 +193,19 @@ export const createCompany = async (req, res) => {
     }
 
     // Deduct actual coins (1/10th of investment due to leverage)
-    user.currency -= coinsNeeded;
+    const balanceBefore = Number(user.currency);
+    user.currency = Number(user.currency) - Number(coinsNeeded);
+    const balanceAfter = Number(user.currency);
     await user.save();
 
     // Record transaction
     await CurrencyTransaction.create({
       user: userId,
-      amount: -coinsNeeded,
+      amount: -Number(coinsNeeded),
       type: 'company_investment',
       description: `Company creation: ${name} (₹${initialInvestment.toLocaleString()} @ 10x leverage)`,
-      balanceBefore: user.currency + coinsNeeded,
-      balanceAfter: user.currency
+      balanceBefore: balanceBefore,
+      balanceAfter: balanceAfter
     });
 
     // Create company
@@ -286,17 +294,19 @@ export const makeInvestment = async (req, res) => {
     const valueBefore = company.currentValue;
 
     // Deduct actual coins (1/10th of investment due to leverage)
-    user.currency -= coinsNeeded;
+    const invBalanceBefore = Number(user.currency);
+    user.currency = Number(user.currency) - Number(coinsNeeded);
+    const invBalanceAfter = Number(user.currency);
     await user.save();
 
     // Record transaction
     await CurrencyTransaction.create({
       user: userId,
-      amount: -coinsNeeded,
+      amount: -Number(coinsNeeded),
       type: 'company_investment',
       description: `Investment in ${company.name} (₹${amount.toLocaleString()} @ 10x leverage)`,
-      balanceBefore: user.currency + coinsNeeded,
-      balanceAfter: user.currency
+      balanceBefore: invBalanceBefore,
+      balanceAfter: invBalanceAfter
     });
 
     // Add investment to company
@@ -377,17 +387,19 @@ export const claimIncome = async (req, res) => {
 
     // Award coins to user
     const user = await User.findById(userId);
-    user.currency += coinsEarned;
+    const incomeBalanceBefore = Number(user.currency || 0);
+    user.currency = Number(user.currency || 0) + Number(coinsEarned);
+    const incomeBalanceAfter = Number(user.currency);
     await user.save();
 
     // Record transaction
     await CurrencyTransaction.create({
       user: userId,
-      amount: coinsEarned,
+      amount: Number(coinsEarned),
       type: 'company_income',
       description: `Income claimed from ${company.name}`,
-      balanceBefore: user.currency - coinsEarned,
-      balanceAfter: user.currency
+      balanceBefore: incomeBalanceBefore,
+      balanceAfter: incomeBalanceAfter
     });
 
     // Record income claim
@@ -453,17 +465,19 @@ export const payTax = async (req, res) => {
     const taxAmount = company.pendingTax;
 
     // Deduct coins
-    user.currency -= taxAmount;
+    const taxBalanceBefore = Number(user.currency || 0);
+    user.currency = Number(user.currency || 0) - Number(taxAmount);
+    const taxBalanceAfter = Number(user.currency);
     await user.save();
 
     // Record transaction
     await CurrencyTransaction.create({
       user: userId,
-      amount: -taxAmount,
+      amount: -Number(taxAmount),
       type: 'company_tax',
       description: `Tax payment for ${company.name}`,
-      balanceBefore: user.currency + taxAmount,
-      balanceAfter: user.currency
+      balanceBefore: taxBalanceBefore,
+      balanceAfter: taxBalanceAfter
     });
 
     // Update company
@@ -516,7 +530,9 @@ export const unlockSlot = async (req, res) => {
     const { cost, newTotal } = companySlot.unlockSlot();
     
     // Deduct coins
-    user.currency -= cost;
+    const slotBalanceBefore = Number(user.currency || 0);
+    user.currency = Number(user.currency || 0) - Number(cost);
+    const slotBalanceAfter = Number(user.currency);
     await user.save();
 
     await companySlot.save();
@@ -524,11 +540,11 @@ export const unlockSlot = async (req, res) => {
     // Record transaction
     await CurrencyTransaction.create({
       user: userId,
-      amount: -cost,
+      amount: -Number(cost),
       type: 'company_slot_unlock',
       description: 'Company slot unlocked',
-      balanceBefore: user.currency + cost,
-      balanceAfter: user.currency
+      balanceBefore: slotBalanceBefore,
+      balanceAfter: slotBalanceAfter
     });
 
     res.json({
@@ -625,17 +641,19 @@ export const upgradeCompany = async (req, res) => {
     }
 
     // Deduct coins
-    user.currency -= upgradeCost;
+    const upgradeBalanceBefore = Number(user.currency || 0);
+    user.currency = Number(user.currency || 0) - Number(upgradeCost);
+    const upgradeBalanceAfter = Number(user.currency);
     await user.save();
 
     // Record transaction
     await CurrencyTransaction.create({
       user: userId,
-      amount: -upgradeCost,
+      amount: -Number(upgradeCost),
       type: 'company_upgrade',
       description: `${company.name} - ${upgradeType} upgrade`,
-      balanceBefore: user.currency + upgradeCost,
-      balanceAfter: user.currency
+      balanceBefore: upgradeBalanceBefore,
+      balanceAfter: upgradeBalanceAfter
     });
 
     // Apply upgrade
