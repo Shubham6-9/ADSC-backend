@@ -67,7 +67,8 @@ const triviaQuestionSchema = new mongoose.Schema(
         'wealth_protection',
         'banking_products',
         'credit_score',
-        'finals'
+        'finals',
+        'financial_literacy',
       ],
     },
     difficulty: {
