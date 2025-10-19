@@ -1,34 +1,34 @@
 import express from 'express';
 import * as companyController from '../controllers/company.controller.js';
-import auth from '../middleware/auth.js';
+import { authMiddleware } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
 // Get all companies for user
-router.get('/my-companies', auth, companyController.getUserCompanies);
+router.get('/my-companies', authMiddleware, companyController.getUserCompanies);
 
 // Get available company types
-router.get('/types', auth, companyController.getCompanyTypes);
+router.get('/types', authMiddleware, companyController.getCompanyTypes);
 
 // Create new company
-router.post('/create', auth, companyController.createCompany);
+router.post('/create', authMiddleware, companyController.createCompany);
 
 // Make investment
-router.post('/invest', auth, companyController.makeInvestment);
+router.post('/invest', authMiddleware, companyController.makeInvestment);
 
 // Claim daily income
-router.post('/claim-income', auth, companyController.claimIncome);
+router.post('/claim-income', authMiddleware, companyController.claimIncome);
 
 // Pay tax
-router.post('/pay-tax', auth, companyController.payTax);
+router.post('/pay-tax', authMiddleware, companyController.payTax);
 
 // Unlock new slot
-router.post('/unlock-slot', auth, companyController.unlockSlot);
+router.post('/unlock-slot', authMiddleware, companyController.unlockSlot);
 
 // Get company stats
-router.get('/stats/:companyId', auth, companyController.getCompanyStats);
+router.get('/stats/:companyId', authMiddleware, companyController.getCompanyStats);
 
 // Upgrade company
-router.post('/upgrade', auth, companyController.upgradeCompany);
+router.post('/upgrade', authMiddleware, companyController.upgradeCompany);
 
 export default router;
