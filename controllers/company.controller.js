@@ -5,6 +5,10 @@ import CompanyIncomeClaim from '../models/CompanyIncomeClaim.js';
 import User from '../models/User.js';
 import CurrencyTransaction from '../models/CurrencyTransaction.js';
 
+// Investment leverage multiplier (10x buying power)
+const INVESTMENT_LEVERAGE = 10;
+const PROFIT_SHARE = 0.1; // User gets 10% of profit in actual coins (1/leverage)
+
 // Company type configurations
 const COMPANY_TYPES = {
   'IT': {
@@ -137,16 +141,19 @@ export const createCompany = async (req, res) => {
     if (initialInvestment < config.minInvestment) {
       return res.status(400).json({
         success: false,
-        message: `Minimum investment for ${type} is ${config.minInvestment} coins`
+        message: `Minimum investment for ${type} is ₹${config.minInvestment.toLocaleString()}`
       });
     }
 
-    // Check user has enough coins
+    // Calculate actual coins needed (1/10th due to 10x leverage)
+    const coinsNeeded = Math.floor(initialInvestment / INVESTMENT_LEVERAGE);
+    
+    // Check user has enough coins for leveraged investment
     const user = await User.findById(userId);
-    if (user.currency < initialInvestment) {
+    if (user.currency < coinsNeeded) {
       return res.status(400).json({
         success: false,
-        message: 'Insufficient coins'
+        message: `Insufficient coins. Need ${coinsNeeded} coins for ₹${initialInvestment.toLocaleString()} investment (10x leverage)`
       });
     }
 
@@ -165,17 +172,17 @@ export const createCompany = async (req, res) => {
       });
     }
 
-    // Deduct coins
-    user.currency -= initialInvestment;
+    // Deduct actual coins (1/10th of investment due to leverage)
+    user.currency -= coinsNeeded;
     await user.save();
 
     // Record transaction
     await CurrencyTransaction.create({
       user: userId,
-      amount: -initialInvestment,
+      amount: -coinsNeeded,
       type: 'debit',
-      description: `Company creation: ${name}`,
-      balanceBefore: user.currency + initialInvestment,
+      description: `Company creation: ${name} (₹${initialInvestment.toLocaleString()} @ 10x leverage)`,
+      balanceBefore: user.currency + coinsNeeded,
       balanceAfter: user.currency
     });
 
@@ -202,8 +209,8 @@ export const createCompany = async (req, res) => {
       company: company._id,
       amount: initialInvestment,
       investmentType: 'initial',
-      description: 'Initial company investment',
-      coinsSpent: initialInvestment,
+      description: `Initial company investment (${coinsNeeded} coins @ 10x leverage)`,
+      coinsSpent: coinsNeeded,
       companyValueBefore: 0,
       companyValueAfter: initialInvestment
     });
@@ -239,9 +246,15 @@ export const makeInvestment = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid investment amount' });
     }
 
+    // Calculate actual coins needed (1/10th due to 10x leverage)
+    const coinsNeeded = Math.floor(amount / INVESTMENT_LEVERAGE);
+
     const user = await User.findById(userId);
-    if (user.currency < amount) {
-      return res.status(400).json({ success: false, message: 'Insufficient coins' });
+    if (user.currency < coinsNeeded) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Insufficient coins. Need ${coinsNeeded} coins for ₹${amount.toLocaleString()} investment (10x leverage)` 
+      });
     }
 
     const company = await Company.findOne({ _id: companyId, user: userId, isActive: true });
@@ -251,17 +264,17 @@ export const makeInvestment = async (req, res) => {
 
     const valueBefore = company.currentValue;
 
-    // Deduct coins
-    user.currency -= amount;
+    // Deduct actual coins (1/10th of investment due to leverage)
+    user.currency -= coinsNeeded;
     await user.save();
 
     // Record transaction
     await CurrencyTransaction.create({
       user: userId,
-      amount: -amount,
+      amount: -coinsNeeded,
       type: 'debit',
-      description: `Investment in ${company.name}`,
-      balanceBefore: user.currency + amount,
+      description: `Investment in ${company.name} (₹${amount.toLocaleString()} @ 10x leverage)`,
+      balanceBefore: user.currency + coinsNeeded,
       balanceAfter: user.currency
     });
 
@@ -275,8 +288,8 @@ export const makeInvestment = async (req, res) => {
       company: company._id,
       amount,
       investmentType,
-      description: `${investmentType} investment`,
-      coinsSpent: amount,
+      description: `${investmentType} investment (${coinsNeeded} coins @ 10x leverage)`,
+      coinsSpent: coinsNeeded,
       companyValueBefore: valueBefore,
       companyValueAfter: company.currentValue
     });
@@ -329,9 +342,10 @@ export const claimIncome = async (req, res) => {
     const taxAmount = company.calculateTax(claimableIncome);
     const netIncome = claimableIncome - taxAmount;
 
-    // Calculate coins earned (based on profit %)
+    // Calculate coins earned (10% of net income due to 10x leverage)
+    // This represents the actual profit share on the leveraged investment
+    const coinsEarned = Math.floor(netIncome * PROFIT_SHARE);
     const profitPercentage = ((company.currentValue - company.totalInvestment) / company.totalInvestment) * 100;
-    const coinsEarned = Math.floor(netIncome * (profitPercentage / 100));
 
     // Update company
     company.lastIncomeClaim = new Date();
