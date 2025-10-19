@@ -393,8 +393,14 @@ export const completeGameSession = async (req, res) => {
     });
   } catch (err) {
     await session.abortTransaction();
-    console.error("completeGameSession error:", err);
-    return res.status(500).json({ success: false, message: "Failed to complete game session" });
+    console.error("❌ completeGameSession error:", err);
+    console.error("Error details:", err.message);
+    console.error("Stack trace:", err.stack);
+    return res.status(500).json({ 
+      success: false, 
+      message: "Failed to complete game session",
+      error: err.message 
+    });
   } finally {
     session.endSession();
   }
