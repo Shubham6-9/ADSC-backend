@@ -180,7 +180,7 @@ export const createCompany = async (req, res) => {
     await CurrencyTransaction.create({
       user: userId,
       amount: -coinsNeeded,
-      type: 'debit',
+      type: 'company_investment',
       description: `Company creation: ${name} (₹${initialInvestment.toLocaleString()} @ 10x leverage)`,
       balanceBefore: user.currency + coinsNeeded,
       balanceAfter: user.currency
@@ -272,7 +272,7 @@ export const makeInvestment = async (req, res) => {
     await CurrencyTransaction.create({
       user: userId,
       amount: -coinsNeeded,
-      type: 'debit',
+      type: 'company_investment',
       description: `Investment in ${company.name} (₹${amount.toLocaleString()} @ 10x leverage)`,
       balanceBefore: user.currency + coinsNeeded,
       balanceAfter: user.currency
@@ -363,7 +363,7 @@ export const claimIncome = async (req, res) => {
     await CurrencyTransaction.create({
       user: userId,
       amount: coinsEarned,
-      type: 'credit',
+      type: 'company_income',
       description: `Income claimed from ${company.name}`,
       balanceBefore: user.currency - coinsEarned,
       balanceAfter: user.currency
@@ -439,7 +439,7 @@ export const payTax = async (req, res) => {
     await CurrencyTransaction.create({
       user: userId,
       amount: -taxAmount,
-      type: 'debit',
+      type: 'company_tax',
       description: `Tax payment for ${company.name}`,
       balanceBefore: user.currency + taxAmount,
       balanceAfter: user.currency
@@ -504,8 +504,8 @@ export const unlockSlot = async (req, res) => {
     await CurrencyTransaction.create({
       user: userId,
       amount: -cost,
-      type: 'debit',
-      description: `Unlocked company slot ${newTotal}`,
+      type: 'company_slot_unlock',
+      description: 'Company slot unlocked',
       balanceBefore: user.currency + cost,
       balanceAfter: user.currency
     });
@@ -611,8 +611,8 @@ export const upgradeCompany = async (req, res) => {
     await CurrencyTransaction.create({
       user: userId,
       amount: -upgradeCost,
-      type: 'debit',
-      description: `${upgradeType} upgrade for ${company.name}`,
+      type: 'company_upgrade',
+      description: `${company.name} - ${upgradeType} upgrade`,
       balanceBefore: user.currency + upgradeCost,
       balanceAfter: user.currency
     });

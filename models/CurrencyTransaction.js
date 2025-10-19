@@ -23,6 +23,13 @@ const currencyTransactionSchema = new mongoose.Schema(
         "admin_adjustment",
         "game_entry",
         "game_reward",
+        "company_investment",
+        "company_income",
+        "company_tax",
+        "company_slot_unlock",
+        "company_upgrade",
+        "debit",
+        "credit",
       ],
     },
     balanceBefore: {
