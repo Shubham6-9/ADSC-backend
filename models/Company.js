@@ -59,6 +59,14 @@ const companySchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  isFrozen: {
+    type: Boolean,
+    default: false
+  },
+  frozenReason: {
+    type: String,
+    default: null
+  },
   // Income claim tracking
   lastIncomeClaim: {
     type: Date,
@@ -117,10 +125,13 @@ companySchema.methods.getClaimableIncome = function() {
   const lastClaim = new Date(this.lastIncomeClaim);
   const hoursSinceLastClaim = (now - lastClaim) / (1000 * 60 * 60);
   
-  if (hoursSinceLastClaim >= 24) {
-    // Calculate new income since last claim
-    const daysPassed = Math.floor(hoursSinceLastClaim / 24);
-    const newIncome = this.dailyIncome * daysPassed;
+  // Changed from 24 hours to 3 hours per collection period
+  if (hoursSinceLastClaim >= 3) {
+    // Calculate new income since last claim (income every 3 hours)
+    const periodsPassed = Math.floor(hoursSinceLastClaim / 3);
+    // Daily income divided by 8 periods per day (24 hours / 3 hours = 8)
+    const incomePerPeriod = this.dailyIncome / 8;
+    const newIncome = incomePerPeriod * periodsPassed;
     return this.unclaimedIncome + newIncome;
   }
   
@@ -129,13 +140,15 @@ companySchema.methods.getClaimableIncome = function() {
 
 // Method to check if can claim income
 companySchema.methods.canClaimIncome = function() {
+  if (this.isFrozen) return false; // Cannot claim if business is frozen
   if (!this.lastIncomeClaim) return true;
   
   const now = new Date();
   const lastClaim = new Date(this.lastIncomeClaim);
   const hoursSinceLastClaim = (now - lastClaim) / (1000 * 60 * 60);
   
-  return hoursSinceLastClaim >= 24;
+  // Changed from 24 hours to 3 hours
+  return hoursSinceLastClaim >= 3;
 };
 
 // Method to get time until next claim
@@ -146,9 +159,10 @@ companySchema.methods.getTimeUntilNextClaim = function() {
   const lastClaim = new Date(this.lastIncomeClaim);
   const hoursSinceLastClaim = (now - lastClaim) / (1000 * 60 * 60);
   
-  if (hoursSinceLastClaim >= 24) return 0;
+  // Changed from 24 hours to 3 hours
+  if (hoursSinceLastClaim >= 3) return 0;
   
-  return 24 - hoursSinceLastClaim;
+  return 3 - hoursSinceLastClaim;
 };
 
 // Method to calculate tax on profit
@@ -171,6 +185,27 @@ companySchema.methods.addInvestment = function(amount) {
   this.currentValue += amount;
   this.updateDailyIncome();
   return this;
+};
+
+// Method to check if business should be frozen due to high pending tax
+companySchema.methods.checkAndFreezeBusiness = function() {
+  // Freeze if pending tax exceeds 50% of current company value
+  const freezeThreshold = this.currentValue * 0.5;
+  
+  if (this.pendingTax >= freezeThreshold && !this.isFrozen) {
+    this.isFrozen = true;
+    this.frozenReason = 'Excessive pending tax. Pay taxes to unfreeze business.';
+    return true;
+  }
+  
+  // Unfreeze if tax is paid and below threshold
+  if (this.pendingTax < freezeThreshold && this.isFrozen) {
+    this.isFrozen = false;
+    this.frozenReason = null;
+    return false;
+  }
+  
+  return this.isFrozen;
 };
 
 // Method to upgrade company

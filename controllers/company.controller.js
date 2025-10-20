@@ -88,13 +88,18 @@ export const getUserCompanies = async (req, res) => {
     const companySlot = await CompanySlot.findOne({ user: userId });
 
     // Calculate claimable income and next claim time for each company
-    const companiesWithStatus = companies.map(company => ({
-      ...company.toObject(),
-      claimableIncome: company.getClaimableIncome(),
-      canClaim: company.canClaimIncome(),
-      hoursUntilClaim: company.getTimeUntilNextClaim(),
-      currentProfit: company.currentValue - company.totalInvestment
-    }));
+    const companiesWithStatus = companies.map(company => {
+      // Check and update freeze status
+      company.checkAndFreezeBusiness();
+      
+      return {
+        ...company.toObject(),
+        claimableIncome: company.getClaimableIncome(),
+        canClaim: company.canClaimIncome(),
+        hoursUntilClaim: company.getTimeUntilNextClaim(),
+        currentProfit: company.currentValue - company.totalInvestment
+      };
+    });
 
     res.json({
       success: true,
@@ -353,6 +358,14 @@ export const claimIncome = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Company not found' });
     }
 
+    // Check if business is frozen
+    if (company.isFrozen) {
+      return res.status(400).json({
+        success: false,
+        message: company.frozenReason || 'Business is frozen. Pay pending taxes to unfreeze.'
+      });
+    }
+
     if (!company.canClaimIncome()) {
       const hoursLeft = company.getTimeUntilNextClaim();
       return res.status(400).json({
@@ -378,19 +391,34 @@ export const claimIncome = async (req, res) => {
     const coinsEarned = Math.floor(netIncome * PROFIT_SHARE);
     const profitPercentage = ((company.currentValue - company.totalInvestment) / company.totalInvestment) * 100;
 
-    // Update company
-    company.lastIncomeClaim = new Date();
-    company.unclaimedIncome = 0;
-    company.totalProfit += netIncome;
-    company.pendingTax += taxAmount;
-    await company.save();
-
-    // Award coins to user
+    // Award coins to user first
     const user = await User.findById(userId);
     const incomeBalanceBefore = Number(user.virtualCurrency || 0);
     user.virtualCurrency = Number(user.virtualCurrency || 0) + Number(coinsEarned);
     const incomeBalanceAfter = Number(user.virtualCurrency);
     await user.save();
+
+    // Update company
+    company.lastIncomeClaim = new Date();
+    company.unclaimedIncome = 0;
+    company.totalProfit += netIncome;
+    company.pendingTax += taxAmount;
+    
+    // Check if business should be frozen due to high pending tax
+    const wasFrozen = company.checkAndFreezeBusiness();
+    await company.save();
+    
+    // Warn user if business was just frozen
+    if (wasFrozen) {
+      await CurrencyTransaction.create({
+        user: userId,
+        amount: 0,
+        type: 'company_frozen',
+        description: `${company.name} frozen due to excessive pending tax`,
+        balanceBefore: incomeBalanceBefore,
+        balanceAfter: incomeBalanceAfter
+      });
+    }
 
     // Record transaction
     await CurrencyTransaction.create({
@@ -417,7 +445,9 @@ export const claimIncome = async (req, res) => {
 
     res.json({
       success: true,
-      message: `Claimed ₹${claimableIncome.toLocaleString()} income!`,
+      message: wasFrozen 
+        ? `Claimed ₹${claimableIncome.toLocaleString()} income! ⚠️ Business frozen due to high pending tax!` 
+        : `Claimed ₹${claimableIncome.toLocaleString()} income!`,
       claim: {
         grossIncome: claimableIncome,
         taxAmount,
@@ -431,7 +461,8 @@ export const claimIncome = async (req, res) => {
         canClaim: false,
         currentProfit: company.currentValue - company.totalInvestment
       },
-      userBalance: user.virtualCurrency
+      userBalance: user.virtualCurrency,
+      frozenWarning: wasFrozen
     });
   } catch (error) {
     console.error('Claim income error:', error);
@@ -484,6 +515,9 @@ export const payTax = async (req, res) => {
     company.totalTaxPaid += taxAmount;
     company.pendingTax = 0;
     company.lastTaxPayment = new Date();
+    
+    // Check if business can be unfrozen after tax payment
+    company.checkAndFreezeBusiness();
     await company.save();
 
     res.json({
