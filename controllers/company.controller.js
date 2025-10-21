@@ -251,7 +251,7 @@ export const createCompany = async (req, res) => {
 
     res.json({
       success: true,
-      message: `${name} created successfully! Income will be available to claim in 5 minutes.`,
+      message: `${name} created successfully! Income will be available to claim in 30 minutes.`,
       company: {
         ...company.toObject(),
         claimableIncome: company.getClaimableIncome(),

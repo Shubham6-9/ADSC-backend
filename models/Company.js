@@ -122,12 +122,12 @@ companySchema.methods.getClaimableIncome = function() {
   const lastClaim = this.lastIncomeClaim ? new Date(this.lastIncomeClaim) : new Date(this.createdAt);
   const hoursSinceLastClaim = (now - lastClaim) / (1000 * 60 * 60);
   
-  // Changed to 5 minutes per collection period (0.0833 hours)
-  const PERIOD_HOURS = 5 / 60; // 5 minutes in hours
+  // Changed to 30 minutes per collection period
+  const PERIOD_HOURS = 30 / 60; // 30 minutes in hours (0.5 hours)
   if (hoursSinceLastClaim >= PERIOD_HOURS) {
-    // Calculate new income since last claim (income every 5 minutes)
+    // Calculate new income since last claim (income every 30 minutes)
     const periodsPassed = Math.floor(hoursSinceLastClaim / PERIOD_HOURS);
-    // Daily income divided by periods per day (24 hours / (5/60) hours = 288 periods)
+    // Daily income divided by periods per day (24 hours / 0.5 hours = 48 periods)
     const periodsPerDay = 24 / PERIOD_HOURS;
     const incomePerPeriod = this.dailyIncome / periodsPerDay;
     const newIncome = incomePerPeriod * periodsPassed;
@@ -146,8 +146,8 @@ companySchema.methods.canClaimIncome = function() {
   const lastClaim = this.lastIncomeClaim ? new Date(this.lastIncomeClaim) : new Date(this.createdAt);
   const hoursSinceLastClaim = (now - lastClaim) / (1000 * 60 * 60);
   
-  // Changed to 5 minutes
-  const PERIOD_HOURS = 5 / 60; // 5 minutes in hours
+  // Changed to 30 minutes
+  const PERIOD_HOURS = 30 / 60; // 30 minutes in hours (0.5 hours)
   return hoursSinceLastClaim >= PERIOD_HOURS;
 };
 
@@ -158,8 +158,8 @@ companySchema.methods.getTimeUntilNextClaim = function() {
   const lastClaim = this.lastIncomeClaim ? new Date(this.lastIncomeClaim) : new Date(this.createdAt);
   const hoursSinceLastClaim = (now - lastClaim) / (1000 * 60 * 60);
   
-  // Changed to 5 minutes
-  const PERIOD_HOURS = 5 / 60; // 5 minutes in hours
+  // Changed to 30 minutes
+  const PERIOD_HOURS = 30 / 60; // 30 minutes in hours (0.5 hours)
   if (hoursSinceLastClaim >= PERIOD_HOURS) return 0;
   
   return PERIOD_HOURS - hoursSinceLastClaim;
