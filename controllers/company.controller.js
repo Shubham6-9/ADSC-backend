@@ -17,7 +17,7 @@ const COMPANY_TYPES = {
     minInvestment: 10000,
     baseGrowthRate: 0.08, // 8% daily
     incomeMultiplier: 1.2,
-    taxRate: 0.25
+    taxRate: 0.10 // 10% tax
   },
   'Stock Market': {
     name: 'Stock Market Trading',
@@ -25,7 +25,7 @@ const COMPANY_TYPES = {
     minInvestment: 15000,
     baseGrowthRate: 0.10, // 10% daily (high risk, high reward)
     incomeMultiplier: 1.5,
-    taxRate: 0.30
+    taxRate: 0.15 // 15% tax (higher due to capital gains)
   },
   'Investment': {
     name: 'Investment Firm',
@@ -33,7 +33,7 @@ const COMPANY_TYPES = {
     minInvestment: 20000,
     baseGrowthRate: 0.06, // 6% daily (stable)
     incomeMultiplier: 1.1,
-    taxRate: 0.28
+    taxRate: 0.12 // 12% tax
   },
   'Real Estate': {
     name: 'Real Estate Business',
@@ -41,7 +41,7 @@ const COMPANY_TYPES = {
     minInvestment: 25000,
     baseGrowthRate: 0.05, // 5% daily (long-term)
     incomeMultiplier: 1.0,
-    taxRate: 0.30
+    taxRate: 0.12 // 12% tax
   },
   'E-Commerce': {
     name: 'E-Commerce Platform',
@@ -49,7 +49,7 @@ const COMPANY_TYPES = {
     minInvestment: 12000,
     baseGrowthRate: 0.07, // 7% daily
     incomeMultiplier: 1.3,
-    taxRate: 0.26
+    taxRate: 0.10 // 10% tax
   },
   'Manufacturing': {
     name: 'Manufacturing Unit',
@@ -57,7 +57,7 @@ const COMPANY_TYPES = {
     minInvestment: 30000,
     baseGrowthRate: 0.04, // 4% daily
     incomeMultiplier: 0.9,
-    taxRate: 0.25
+    taxRate: 0.10 // 10% tax
   },
   'Consulting': {
     name: 'Consulting Firm',
@@ -65,7 +65,7 @@ const COMPANY_TYPES = {
     minInvestment: 8000,
     baseGrowthRate: 0.09, // 9% daily
     incomeMultiplier: 1.4,
-    taxRate: 0.27
+    taxRate: 0.10 // 10% tax
   },
   'Trading': {
     name: 'Trading Company',
@@ -73,7 +73,7 @@ const COMPANY_TYPES = {
     minInvestment: 18000,
     baseGrowthRate: 0.06, // 6% daily
     incomeMultiplier: 1.1,
-    taxRate: 0.29
+    taxRate: 0.12 // 12% tax
   }
 };
 
