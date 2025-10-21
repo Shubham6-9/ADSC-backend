@@ -89,6 +89,13 @@ export const getUserCompanies = async (req, res) => {
 
     // Calculate claimable income and next claim time for each company
     const companiesWithStatus = await Promise.all(companies.map(async (company) => {
+      // Update existing companies with new lower tax rates
+      const companyConfig = COMPANY_TYPES[company.type];
+      if (companyConfig && company.taxRate > companyConfig.taxRate) {
+        company.taxRate = companyConfig.taxRate;
+        await company.save();
+      }
+      
       // Check and update freeze status
       const freezeChanged = company.checkAndFreezeBusiness();
       if (freezeChanged !== company.isFrozen) {
@@ -489,34 +496,37 @@ export const payTax = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No pending tax' });
     }
 
+    const taxAmountRupees = company.pendingTax;
+    // Convert rupees to coins (divide by leverage multiplier)
+    // Since 1 coin = ₹10 investment power, ₹10 tax = 1 coin cost
+    const taxAmountCoins = Math.ceil(taxAmountRupees / INVESTMENT_LEVERAGE);
+
     const user = await User.findById(userId);
-    if (user.virtualCurrency < company.pendingTax) {
+    if (user.virtualCurrency < taxAmountCoins) {
       return res.status(400).json({
         success: false,
-        message: 'Insufficient coins to pay tax'
+        message: `Insufficient coins to pay tax. Need ${taxAmountCoins} coins (₹${taxAmountRupees} tax)`
       });
     }
 
-    const taxAmount = company.pendingTax;
-
     // Deduct coins
     const taxBalanceBefore = Number(user.virtualCurrency || 0);
-    user.virtualCurrency = Number(user.virtualCurrency || 0) - Number(taxAmount);
+    user.virtualCurrency = Number(user.virtualCurrency || 0) - Number(taxAmountCoins);
     const taxBalanceAfter = Number(user.virtualCurrency);
     await user.save();
 
     // Record transaction
     await CurrencyTransaction.create({
       user: userId,
-      amount: -Number(taxAmount),
+      amount: -Number(taxAmountCoins),
       type: 'company_tax',
-      description: `Tax payment for ${company.name}`,
+      description: `Tax payment for ${company.name} (₹${taxAmountRupees} = ${taxAmountCoins} coins)`,
       balanceBefore: taxBalanceBefore,
       balanceAfter: taxBalanceAfter
     });
 
     // Update company
-    company.totalTaxPaid += taxAmount;
+    company.totalTaxPaid += taxAmountRupees;
     company.pendingTax = 0;
     company.lastTaxPayment = new Date();
     
@@ -526,8 +536,9 @@ export const payTax = async (req, res) => {
 
     res.json({
       success: true,
-      message: `Paid ₹${taxAmount.toLocaleString()} in taxes`,
-      taxPaid: taxAmount,
+      message: `Paid ₹${taxAmountRupees.toLocaleString()} in taxes (${taxAmountCoins} coins)`,
+      taxPaidRupees: taxAmountRupees,
+      taxPaidCoins: taxAmountCoins,
       company: {
         ...company.toObject(),
         currentProfit: company.currentValue - company.totalInvestment
