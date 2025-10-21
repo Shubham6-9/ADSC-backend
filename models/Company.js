@@ -117,20 +117,19 @@ companySchema.virtual('currentProfit').get(function() {
 
 // Method to calculate claimable income
 companySchema.methods.getClaimableIncome = function() {
-  if (!this.lastIncomeClaim) {
-    return this.unclaimedIncome;
-  }
-  
   const now = new Date();
-  const lastClaim = new Date(this.lastIncomeClaim);
+  // Use lastIncomeClaim if it exists, otherwise use createdAt for new companies
+  const lastClaim = this.lastIncomeClaim ? new Date(this.lastIncomeClaim) : new Date(this.createdAt);
   const hoursSinceLastClaim = (now - lastClaim) / (1000 * 60 * 60);
   
-  // Changed from 24 hours to 3 hours per collection period
-  if (hoursSinceLastClaim >= 3) {
-    // Calculate new income since last claim (income every 3 hours)
-    const periodsPassed = Math.floor(hoursSinceLastClaim / 3);
-    // Daily income divided by 8 periods per day (24 hours / 3 hours = 8)
-    const incomePerPeriod = this.dailyIncome / 8;
+  // Changed to 5 minutes per collection period (0.0833 hours)
+  const PERIOD_HOURS = 5 / 60; // 5 minutes in hours
+  if (hoursSinceLastClaim >= PERIOD_HOURS) {
+    // Calculate new income since last claim (income every 5 minutes)
+    const periodsPassed = Math.floor(hoursSinceLastClaim / PERIOD_HOURS);
+    // Daily income divided by periods per day (24 hours / (5/60) hours = 288 periods)
+    const periodsPerDay = 24 / PERIOD_HOURS;
+    const incomePerPeriod = this.dailyIncome / periodsPerDay;
     const newIncome = incomePerPeriod * periodsPassed;
     return this.unclaimedIncome + newIncome;
   }
@@ -141,28 +140,29 @@ companySchema.methods.getClaimableIncome = function() {
 // Method to check if can claim income
 companySchema.methods.canClaimIncome = function() {
   if (this.isFrozen) return false; // Cannot claim if business is frozen
-  if (!this.lastIncomeClaim) return true;
   
   const now = new Date();
-  const lastClaim = new Date(this.lastIncomeClaim);
+  // Use lastIncomeClaim if it exists, otherwise use createdAt for new companies
+  const lastClaim = this.lastIncomeClaim ? new Date(this.lastIncomeClaim) : new Date(this.createdAt);
   const hoursSinceLastClaim = (now - lastClaim) / (1000 * 60 * 60);
   
-  // Changed from 24 hours to 3 hours
-  return hoursSinceLastClaim >= 3;
+  // Changed to 5 minutes
+  const PERIOD_HOURS = 5 / 60; // 5 minutes in hours
+  return hoursSinceLastClaim >= PERIOD_HOURS;
 };
 
 // Method to get time until next claim
 companySchema.methods.getTimeUntilNextClaim = function() {
-  if (!this.lastIncomeClaim) return 0;
-  
   const now = new Date();
-  const lastClaim = new Date(this.lastIncomeClaim);
+  // Use lastIncomeClaim if it exists, otherwise use createdAt for new companies
+  const lastClaim = this.lastIncomeClaim ? new Date(this.lastIncomeClaim) : new Date(this.createdAt);
   const hoursSinceLastClaim = (now - lastClaim) / (1000 * 60 * 60);
   
-  // Changed from 24 hours to 3 hours
-  if (hoursSinceLastClaim >= 3) return 0;
+  // Changed to 5 minutes
+  const PERIOD_HOURS = 5 / 60; // 5 minutes in hours
+  if (hoursSinceLastClaim >= PERIOD_HOURS) return 0;
   
-  return 3 - hoursSinceLastClaim;
+  return PERIOD_HOURS - hoursSinceLastClaim;
 };
 
 // Method to calculate tax on profit

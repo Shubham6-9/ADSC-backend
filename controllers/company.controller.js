@@ -88,9 +88,12 @@ export const getUserCompanies = async (req, res) => {
     const companySlot = await CompanySlot.findOne({ user: userId });
 
     // Calculate claimable income and next claim time for each company
-    const companiesWithStatus = companies.map(company => {
+    const companiesWithStatus = await Promise.all(companies.map(async (company) => {
       // Check and update freeze status
-      company.checkAndFreezeBusiness();
+      const freezeChanged = company.checkAndFreezeBusiness();
+      if (freezeChanged !== company.isFrozen) {
+        await company.save(); // Save if freeze status changed
+      }
       
       return {
         ...company.toObject(),
@@ -99,7 +102,7 @@ export const getUserCompanies = async (req, res) => {
         hoursUntilClaim: company.getTimeUntilNextClaim(),
         currentProfit: company.currentValue - company.totalInvestment
       };
-    });
+    }));
 
     res.json({
       success: true,
@@ -248,11 +251,12 @@ export const createCompany = async (req, res) => {
 
     res.json({
       success: true,
-      message: `${name} created successfully!`,
+      message: `${name} created successfully! Income will be available to claim in 5 minutes.`,
       company: {
         ...company.toObject(),
-        claimableIncome: 0,
-        canClaim: false,
+        claimableIncome: company.getClaimableIncome(),
+        canClaim: company.canClaimIncome(),
+        hoursUntilClaim: company.getTimeUntilNextClaim(),
         currentProfit: 0
       },
       userBalance: user.virtualCurrency
