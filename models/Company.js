@@ -137,6 +137,24 @@ companySchema.methods.getClaimableIncome = function() {
   return this.unclaimedIncome;
 };
 
+// Method to get real-time income display (updates every minute)
+companySchema.methods.getRealtimeIncome = function() {
+  const now = new Date();
+  const lastClaim = this.lastIncomeClaim ? new Date(this.lastIncomeClaim) : new Date(this.createdAt);
+  const minutesSinceLastClaim = (now - lastClaim) / (1000 * 60);
+  
+  // Calculate income per minute for display
+  const minutesPerDay = 24 * 60;
+  const incomePerMinute = this.dailyIncome / minutesPerDay;
+  const accumulatedIncome = incomePerMinute * minutesSinceLastClaim;
+  
+  return {
+    accumulatedIncome: Math.floor(this.unclaimedIncome + accumulatedIncome),
+    incomePerMinute: Math.floor(incomePerMinute),
+    minutesSinceLastClaim: Math.floor(minutesSinceLastClaim)
+  };
+};
+
 // Method to check if can claim income
 companySchema.methods.canClaimIncome = function() {
   if (this.isFrozen) return false; // Cannot claim if business is frozen
@@ -156,13 +174,38 @@ companySchema.methods.getTimeUntilNextClaim = function() {
   const now = new Date();
   // Use lastIncomeClaim if it exists, otherwise use createdAt for new companies
   const lastClaim = this.lastIncomeClaim ? new Date(this.lastIncomeClaim) : new Date(this.createdAt);
-  const hoursSinceLastClaim = (now - lastClaim) / (1000 * 60 * 60);
+  const minutesSinceLastClaim = (now - lastClaim) / (1000 * 60);
   
   // Changed to 30 minutes
-  const PERIOD_HOURS = 30 / 60; // 30 minutes in hours (0.5 hours)
-  if (hoursSinceLastClaim >= PERIOD_HOURS) return 0;
+  const PERIOD_MINUTES = 30;
+  if (minutesSinceLastClaim >= PERIOD_MINUTES) return 0;
   
-  return PERIOD_HOURS - hoursSinceLastClaim;
+  const minutesRemaining = PERIOD_MINUTES - minutesSinceLastClaim;
+  return minutesRemaining / 60; // Return in hours for backward compatibility
+};
+
+// Method to get detailed time until next claim
+companySchema.methods.getTimeUntilNextClaimDetailed = function() {
+  const now = new Date();
+  const lastClaim = this.lastIncomeClaim ? new Date(this.lastIncomeClaim) : new Date(this.createdAt);
+  const secondsSinceLastClaim = (now - lastClaim) / 1000;
+  
+  const PERIOD_SECONDS = 30 * 60; // 30 minutes in seconds
+  
+  if (secondsSinceLastClaim >= PERIOD_SECONDS) {
+    return { minutes: 0, seconds: 0, totalSeconds: 0, canClaim: true };
+  }
+  
+  const secondsRemaining = PERIOD_SECONDS - secondsSinceLastClaim;
+  const minutes = Math.floor(secondsRemaining / 60);
+  const seconds = Math.floor(secondsRemaining % 60);
+  
+  return {
+    minutes,
+    seconds,
+    totalSeconds: Math.floor(secondsRemaining),
+    canClaim: false
+  };
 };
 
 // Method to calculate tax on profit

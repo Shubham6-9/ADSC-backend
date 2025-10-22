@@ -102,12 +102,25 @@ export const getUserCompanies = async (req, res) => {
         await company.save(); // Save if freeze status changed
       }
       
+      // Get real-time income data
+      const realtimeIncome = company.getRealtimeIncome();
+      const timeRemaining = company.getTimeUntilNextClaimDetailed();
+      
       return {
         ...company.toObject(),
         claimableIncome: company.getClaimableIncome(),
         canClaim: company.canClaimIncome(),
         hoursUntilClaim: company.getTimeUntilNextClaim(),
-        currentProfit: company.currentValue - company.totalInvestment
+        currentProfit: company.currentValue - company.totalInvestment,
+        // Real-time display data
+        realtimeIncome: realtimeIncome.accumulatedIncome,
+        incomePerMinute: realtimeIncome.incomePerMinute,
+        timeRemaining: timeRemaining,
+        lastClaimTime: company.lastIncomeClaim || company.createdAt,
+        // Tax warning levels
+        taxWarningLevel: company.pendingTax >= company.currentValue * 0.5 ? 'critical' : 
+                        company.pendingTax >= company.currentValue * 0.3 ? 'high' : 
+                        company.pendingTax > 0 ? 'normal' : 'none'
       };
     }));
 
@@ -454,6 +467,10 @@ export const claimIncome = async (req, res) => {
       companyLevel: company.level
     });
 
+    // Get updated real-time data
+    const realtimeIncome = company.getRealtimeIncome();
+    const timeRemaining = company.getTimeUntilNextClaimDetailed();
+
     res.json({
       success: true,
       message: wasFrozen 
@@ -470,7 +487,14 @@ export const claimIncome = async (req, res) => {
         ...company.toObject(),
         claimableIncome: 0,
         canClaim: false,
-        currentProfit: company.currentValue - company.totalInvestment
+        currentProfit: company.currentValue - company.totalInvestment,
+        realtimeIncome: realtimeIncome.accumulatedIncome,
+        incomePerMinute: realtimeIncome.incomePerMinute,
+        timeRemaining: timeRemaining,
+        lastClaimTime: company.lastIncomeClaim,
+        taxWarningLevel: company.pendingTax >= company.currentValue * 0.5 ? 'critical' : 
+                        company.pendingTax >= company.currentValue * 0.3 ? 'high' : 
+                        company.pendingTax > 0 ? 'normal' : 'none'
       },
       userBalance: user.virtualCurrency,
       frozenWarning: wasFrozen
@@ -531,19 +555,32 @@ export const payTax = async (req, res) => {
     company.lastTaxPayment = new Date();
     
     // Check if business can be unfrozen after tax payment
+    const wasUnfrozen = company.isFrozen; // Store frozen state before check
     company.checkAndFreezeBusiness();
     await company.save();
 
+    // Get updated real-time data
+    const realtimeIncome = company.getRealtimeIncome();
+    const timeRemaining = company.getTimeUntilNextClaimDetailed();
+
     res.json({
       success: true,
-      message: `Paid ₹${taxAmountRupees.toLocaleString()} in taxes (${taxAmountCoins} coins)`,
+      message: wasUnfrozen && !company.isFrozen 
+        ? `Paid ₹${taxAmountRupees.toLocaleString()} in taxes (${taxAmountCoins} coins) - Business unfrozen! 🎉`
+        : `Paid ₹${taxAmountRupees.toLocaleString()} in taxes (${taxAmountCoins} coins)`,
       taxPaidRupees: taxAmountRupees,
       taxPaidCoins: taxAmountCoins,
       company: {
         ...company.toObject(),
-        currentProfit: company.currentValue - company.totalInvestment
+        currentProfit: company.currentValue - company.totalInvestment,
+        realtimeIncome: realtimeIncome.accumulatedIncome,
+        incomePerMinute: realtimeIncome.incomePerMinute,
+        timeRemaining: timeRemaining,
+        lastClaimTime: company.lastIncomeClaim || company.createdAt,
+        taxWarningLevel: 'none'
       },
-      userBalance: user.virtualCurrency
+      userBalance: user.virtualCurrency,
+      wasUnfrozen: wasUnfrozen && !company.isFrozen
     });
   } catch (error) {
     console.error('Pay tax error:', error);
