@@ -31,4 +31,7 @@ router.get('/stats/:companyId', authMiddleware, companyController.getCompanyStat
 // Upgrade company
 router.post('/upgrade', authMiddleware, companyController.upgradeCompany);
 
+// Shutdown company
+router.post('/shutdown', authMiddleware, companyController.shutdownCompany);
+
 export default router;

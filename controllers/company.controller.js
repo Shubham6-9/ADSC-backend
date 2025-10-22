@@ -428,6 +428,9 @@ export const claimIncome = async (req, res) => {
     company.totalProfit += netIncome;
     company.pendingTax += taxAmount;
     
+    // Increase company value with the net profit earned
+    company.currentValue += netIncome;
+    
     // Check if business should be frozen due to high pending tax
     const wasFrozen = company.checkAndFreezeBusiness();
     await company.save();
@@ -553,6 +556,9 @@ export const payTax = async (req, res) => {
     company.totalTaxPaid += taxAmountRupees;
     company.pendingTax = 0;
     company.lastTaxPayment = new Date();
+    
+    // Decrease company value by the tax amount paid
+    company.currentValue = Math.max(0, company.currentValue - taxAmountRupees);
     
     // Check if business can be unfrozen after tax payment
     const wasUnfrozen = company.isFrozen; // Store frozen state before check
@@ -768,6 +774,57 @@ export const upgradeCompany = async (req, res) => {
     });
   } catch (error) {
     console.error('Upgrade company error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// Shutdown company
+export const shutdownCompany = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user._id;
+    const { companyId } = req.body;
+
+    const company = await Company.findOne({ _id: companyId, user: userId, isActive: true });
+    if (!company) {
+      return res.status(404).json({ success: false, message: 'Company not found' });
+    }
+
+    // Store company name for message
+    const companyName = company.name;
+
+    // Mark company as inactive (soft delete)
+    company.isActive = false;
+    await company.save();
+
+    // Update company slot
+    const companySlot = await CompanySlot.findOne({ user: userId });
+    if (companySlot) {
+      companySlot.usedSlots = Math.max(0, companySlot.usedSlots - 1);
+      await companySlot.save();
+    }
+
+    // Record transaction
+    await CurrencyTransaction.create({
+      user: userId,
+      amount: 0,
+      type: 'company_shutdown',
+      description: `${companyName} shutdown - Slot freed`,
+      balanceBefore: 0,
+      balanceAfter: 0
+    });
+
+    res.json({
+      success: true,
+      message: `${companyName} has been shut down successfully. Slot is now available.`,
+      slots: {
+        total: companySlot?.totalSlots || 1,
+        used: companySlot?.usedSlots || 0,
+        available: (companySlot?.totalSlots || 1) - (companySlot?.usedSlots || 0),
+        nextSlotCost: companySlot?.nextSlotCost || 5000
+      }
+    });
+  } catch (error) {
+    console.error('Shutdown company error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
