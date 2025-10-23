@@ -594,16 +594,20 @@ export const depositToCryptoWallet = async (req, res) => {
     );
 
     await session.commitTransaction();
+    
+    // Get updated balance
+    const updatedUser = await User.findById(userId).select("virtualCurrency");
 
     return res.status(200).json({
       success: true,
       message: "Deposit successful",
-      newBalance: user.virtualCurrency - amount,
+      newBalance: updatedUser.virtualCurrency,
     });
   } catch (err) {
     await session.abortTransaction();
     console.error("depositToCryptoWallet error:", err);
-    return res.status(500).json({ success: false, message: "Failed to deposit" });
+    console.error("Error details:", err.message, err.stack);
+    return res.status(500).json({ success: false, message: `Failed to deposit: ${err.message}` });
   } finally {
     session.endSession();
   }
@@ -652,7 +656,8 @@ export const withdrawFromCryptoWallet = async (req, res) => {
   } catch (err) {
     await session.abortTransaction();
     console.error("withdrawFromCryptoWallet error:", err);
-    return res.status(500).json({ success: false, message: "Failed to withdraw" });
+    console.error("Error details:", err.message, err.stack);
+    return res.status(500).json({ success: false, message: `Failed to withdraw: ${err.message}` });
   } finally {
     session.endSession();
   }
