@@ -523,8 +523,8 @@ export const getActiveChallenges = async (req, res) => {
 };
 
 /**
- * GET /api/user/currency/balance
- * Get user's virtual currency balance
+ * GET /api/user/friend-challenges/currency/balance
+ * Get current user's virtual currency balance
  */
 export const getCurrencyBalance = async (req, res) => {
   try {
@@ -544,6 +544,117 @@ export const getCurrencyBalance = async (req, res) => {
   } catch (err) {
     console.error("getCurrencyBalance error:", err);
     return res.status(500).json({ success: false, message: "Failed to get balance" });
+  }
+};
+
+/**
+ * POST /api/user/friend-challenges/currency/deposit-crypto
+ * Deposit coins to crypto wallet (deduct from main balance)
+ */
+export const depositToCryptoWallet = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const userId = req.user && req.user.id;
+    if (!userId) {
+      await session.abortTransaction();
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { amount } = req.body;
+    if (!amount || amount <= 0) {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, message: "Invalid amount" });
+    }
+
+    const user = await User.findById(userId).session(session);
+    if (!user) {
+      await session.abortTransaction();
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (user.virtualCurrency < amount) {
+      await session.abortTransaction();
+      return res.status(400).json({ 
+        success: false, 
+        message: `Insufficient balance. You have ${user.virtualCurrency} coins but need ${amount}` 
+      });
+    }
+
+    // Deduct from balance
+    await createTransaction(
+      userId,
+      -amount,
+      "crypto_deposit",
+      `Deposited ${amount} coins to crypto wallet with 10x leverage`,
+      null,
+      null,
+      session
+    );
+
+    await session.commitTransaction();
+
+    return res.status(200).json({
+      success: true,
+      message: "Deposit successful",
+      newBalance: user.virtualCurrency - amount,
+    });
+  } catch (err) {
+    await session.abortTransaction();
+    console.error("depositToCryptoWallet error:", err);
+    return res.status(500).json({ success: false, message: "Failed to deposit" });
+  } finally {
+    session.endSession();
+  }
+};
+
+/**
+ * POST /api/user/friend-challenges/currency/withdraw-crypto
+ * Withdraw from crypto wallet (add to main balance)
+ */
+export const withdrawFromCryptoWallet = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const userId = req.user && req.user.id;
+    if (!userId) {
+      await session.abortTransaction();
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { amount } = req.body;
+    if (!amount || amount <= 0) {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, message: "Invalid amount" });
+    }
+
+    // Add to balance
+    await createTransaction(
+      userId,
+      amount,
+      "crypto_withdraw",
+      `Withdrew ${amount} coins from crypto wallet (after 10x leverage adjustment)`,
+      null,
+      null,
+      session
+    );
+
+    await session.commitTransaction();
+
+    const user = await User.findById(userId).select("virtualCurrency");
+    return res.status(200).json({
+      success: true,
+      message: "Withdrawal successful",
+      newBalance: user.virtualCurrency,
+    });
+  } catch (err) {
+    await session.abortTransaction();
+    console.error("withdrawFromCryptoWallet error:", err);
+    return res.status(500).json({ success: false, message: "Failed to withdraw" });
+  } finally {
+    session.endSession();
   }
 };
 

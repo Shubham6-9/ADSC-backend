@@ -11,6 +11,8 @@ import {
   getActiveChallenges,
   getCurrencyBalance,
   getCurrencyTransactions,
+  depositToCryptoWallet,
+  withdrawFromCryptoWallet,
 } from "../controllers/friendChallenge.controller.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 
@@ -22,6 +24,8 @@ router.use(authMiddleware);
 // Currency endpoints
 router.get("/currency/balance", getCurrencyBalance);
 router.get("/currency/transactions", getCurrencyTransactions);
+router.post("/currency/deposit-crypto", depositToCryptoWallet);
+router.post("/currency/withdraw-crypto", withdrawFromCryptoWallet);
 
 // Challenge templates
 router.get("/templates", getChallengeTemplates);
