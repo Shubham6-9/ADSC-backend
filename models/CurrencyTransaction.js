@@ -28,6 +28,8 @@ const currencyTransactionSchema = new mongoose.Schema(
         "company_tax",
         "company_slot_unlock",
         "company_upgrade",
+        "crypto_deposit",
+        "crypto_withdraw",
         "debit",
         "credit",
       ],
