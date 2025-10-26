@@ -664,6 +664,123 @@ export const withdrawFromCryptoWallet = async (req, res) => {
 };
 
 /**
+ * POST /api/user/friend-challenges/currency/crypto-buy
+ * Buy cryptocurrency (deduct from crypto wallet)
+ */
+export const buyCrypto = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const userId = req.user && req.user.id;
+    if (!userId) {
+      await session.abortTransaction();
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { cryptoId, quantity, price } = req.body;
+    if (!cryptoId || !quantity || !price || quantity <= 0 || price <= 0) {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, message: "Invalid crypto purchase data" });
+    }
+
+    const totalCost = quantity * price;
+
+    // Create transaction for crypto purchase
+    await createTransaction(
+      userId,
+      -totalCost,
+      "crypto_buy",
+      `Bought ${quantity} ${cryptoId.toUpperCase()} for ₹${totalCost.toFixed(2)}`,
+      null,
+      null,
+      session
+    );
+
+    await session.commitTransaction();
+
+    return res.status(200).json({
+      success: true,
+      message: "Crypto purchase successful",
+      totalCost,
+    });
+  } catch (err) {
+    await session.abortTransaction();
+    console.error("buyCrypto error:", err);
+    return res.status(500).json({ success: false, message: `Failed to buy crypto: ${err.message}` });
+  } finally {
+    session.endSession();
+  }
+};
+
+/**
+ * POST /api/user/friend-challenges/currency/crypto-sell
+ * Sell cryptocurrency (add to crypto wallet)
+ */
+export const sellCrypto = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const userId = req.user && req.user.id;
+    if (!userId) {
+      await session.abortTransaction();
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { cryptoId, quantity, price, profitLoss } = req.body;
+    if (!cryptoId || !quantity || !price || quantity <= 0 || price <= 0) {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, message: "Invalid crypto sale data" });
+    }
+
+    const totalValue = quantity * price;
+
+    // Create transaction for crypto sale
+    await createTransaction(
+      userId,
+      totalValue,
+      "crypto_sell",
+      `Sold ${quantity} ${cryptoId.toUpperCase()} for ₹${totalValue.toFixed(2)}`,
+      null,
+      null,
+      session
+    );
+
+    // If there's a profit or loss, create additional transaction
+    if (profitLoss !== 0) {
+      const profitLossType = profitLoss > 0 ? "crypto_profit" : "crypto_loss";
+      const profitLossAmount = Math.abs(profitLoss);
+      
+      await createTransaction(
+        userId,
+        profitLoss,
+        profitLossType,
+        `${profitLoss > 0 ? 'Profit' : 'Loss'} from ${cryptoId.toUpperCase()} trading: ₹${profitLossAmount.toFixed(2)}`,
+        null,
+        null,
+        session
+      );
+    }
+
+    await session.commitTransaction();
+
+    return res.status(200).json({
+      success: true,
+      message: "Crypto sale successful",
+      totalValue,
+      profitLoss,
+    });
+  } catch (err) {
+    await session.abortTransaction();
+    console.error("sellCrypto error:", err);
+    return res.status(500).json({ success: false, message: `Failed to sell crypto: ${err.message}` });
+  } finally {
+    session.endSession();
+  }
+};
+
+/**
  * GET /api/user/currency/transactions
  * Get user's currency transaction history
  */

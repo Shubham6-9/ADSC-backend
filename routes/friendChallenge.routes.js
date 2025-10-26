@@ -13,6 +13,8 @@ import {
   getCurrencyTransactions,
   depositToCryptoWallet,
   withdrawFromCryptoWallet,
+  buyCrypto,
+  sellCrypto,
 } from "../controllers/friendChallenge.controller.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 
@@ -26,6 +28,8 @@ router.get("/currency/balance", getCurrencyBalance);
 router.get("/currency/transactions", getCurrencyTransactions);
 router.post("/currency/deposit-crypto", depositToCryptoWallet);
 router.post("/currency/withdraw-crypto", withdrawFromCryptoWallet);
+router.post("/currency/crypto-buy", buyCrypto);
+router.post("/currency/crypto-sell", sellCrypto);
 
 // Challenge templates
 router.get("/templates", getChallengeTemplates);
