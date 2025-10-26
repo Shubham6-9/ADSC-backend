@@ -7,6 +7,8 @@ const expenseSchema = new mongoose.Schema({
   category: { type: String, required: true, trim: true, index: true }, // e.g. "Food", "Transport"
   amount: { type: Number, required: true, min: 0 },
   notes: { type: String, trim: true, default: "" },
+  isHidden: { type: Boolean, default: false, index: true }, // Flag for hidden category expenses
+  hiddenCategoryId: { type: mongoose.Schema.Types.ObjectId, ref: "HiddenCategory", default: null }, // Reference to hidden category
 }, { timestamps: true });
 
 // Compound index to speed common queries for a user's expenses in a date range or by category

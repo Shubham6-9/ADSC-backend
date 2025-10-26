@@ -1,6 +1,7 @@
 // controllers/expense.controller.js
 import mongoose from "mongoose";
 import Expense from "../models/Expense.js";
+import HiddenCategory from "../models/HiddenCategory.js";
 import { updateStreakOnExpense, getStreakXPReward } from "../services/streak.service.js";
 import { updateChallengeProgress } from "../services/dailyChallenge.service.js";
 
@@ -21,7 +22,7 @@ export const createExpense = async (req, res) => {
     const userId = req.user && req.user.id;
     if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
 
-    const { date, category, amount, notes } = req.body;
+    const { date, category, amount, notes, isHidden, hiddenCategoryId } = req.body;
 
     // Validation
     if (!date) return res.status(400).json({ success: false, message: "date is required (ISO string)" });
@@ -36,6 +37,20 @@ export const createExpense = async (req, res) => {
       return res.status(400).json({ success: false, message: "amount is required and must be a non-negative number" });
     }
 
+    // Validate hidden category if provided
+    let hiddenCategory = null;
+    if (isHidden && hiddenCategoryId) {
+      hiddenCategory = await HiddenCategory.findOne({
+        _id: hiddenCategoryId,
+        user: userId,
+        isActive: true
+      });
+      
+      if (!hiddenCategory) {
+        return res.status(400).json({ success: false, message: "Invalid hidden category" });
+      }
+    }
+
     // Create expense doc
     const expense = await Expense.create({
       user: userId,
@@ -43,6 +58,8 @@ export const createExpense = async (req, res) => {
       category: category.trim(),
       amount: numericAmount,
       notes: (notes && String(notes).trim()) || "",
+      isHidden: isHidden || false,
+      hiddenCategoryId: hiddenCategory ? hiddenCategory._id : null,
     });
 
     // Update streak after expense is added
@@ -123,13 +140,18 @@ export const getExpenses = async (req, res) => {
     const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 25));
     const skip = (page - 1) * limit;
 
-    const { category, from, to, sortBy } = req.query;
+    const { category, from, to, sortBy, includeHidden } = req.query;
 
     // Build filter
     const filter = { user: new mongoose.Types.ObjectId(userId) };
 
     if (category && String(category).trim()) {
       filter.category = String(category).trim();
+    }
+
+    // Handle hidden expenses filter
+    if (includeHidden !== 'true') {
+      filter.isHidden = { $ne: true };
     }
 
     if (from) {
