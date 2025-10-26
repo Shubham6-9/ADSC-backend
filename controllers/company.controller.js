@@ -723,7 +723,7 @@ export const upgradeCompany = async (req, res) => {
     }
 
     // Calculate upgrade cost (increases with company level)
-    const upgradeCost = Math.floor(5000 * Math.pow(1.5, company.level));
+    const upgradeCost = Math.floor(500 * Math.pow(1.5, company.level));
 
     const user = await User.findById(userId);
     if (user.virtualCurrency < upgradeCost) {
