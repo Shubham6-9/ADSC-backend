@@ -133,12 +133,15 @@ export const createBudget = async (req, res) => {
     }
 
     // === MONTHLY BUDGET VALIDATION ===
-    // Check if monthly budget exceeds yearly budget (if yearly exists)
+    // Check if monthly budget exceeds yearly budget (only if a yearly budget exists for the same time period)
     if (budgetDuration === "monthly") {
       const yearlyBudgetQuery = {
         user: userId,
         budgetDuration: "yearly",
         budgetType: budgetType,
+        // Only find yearly budgets that overlap with the monthly budget's date range
+        startDate: { $lte: newEndDate },    // Yearly starts before/when monthly ends
+        endDate: { $gte: newStartDate }     // Yearly ends after/when monthly starts
       };
 
       if (budgetType === "category") {
@@ -161,11 +164,14 @@ export const createBudget = async (req, res) => {
           });
         }
 
-        // Calculate total already allocated to monthly budgets
+        // Calculate total already allocated to monthly budgets within this yearly budget
         const monthlyBudgetsQuery = {
           user: userId,
           budgetDuration: "monthly",
           budgetType: budgetType,
+          // Only count monthly budgets that fall within this yearly budget
+          startDate: { $gte: yearlyStart },
+          endDate: { $lte: yearlyEnd }
         };
 
         if (budgetType === "category") {
