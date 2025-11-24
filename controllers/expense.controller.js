@@ -1,9 +1,9 @@
-// controllers/expense.controller.js
 import mongoose from "mongoose";
 import Expense from "../models/Expense.js";
 import HiddenCategory from "../models/HiddenCategory.js";
 import { updateStreakOnExpense, getStreakXPReward } from "../services/streak.service.js";
 import { updateChallengeProgress } from "../services/dailyChallenge.service.js";
+import { updateBudgetOnExpense } from "../services/updateBudgetOnExpense.service.js";
 
 /**
  * Helper - validate ISO date string
@@ -15,14 +15,14 @@ function isValidDate(value) {
 
 /**
  * POST /api/user/expense
- * Body: { date, category, amount, notes? }
+ * Body: { date, category, amount, notes?, isEmergency? }
  */
 export const createExpense = async (req, res) => {
   try {
     const userId = req.user && req.user.id;
     if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
 
-    const { date, category, amount, notes, isHidden, hiddenCategoryId } = req.body;
+    const { date, category, amount, notes, isHidden, hiddenCategoryId, isEmergency } = req.body;
 
     // Validation
     if (!date) return res.status(400).json({ success: false, message: "date is required (ISO string)" });
@@ -45,7 +45,7 @@ export const createExpense = async (req, res) => {
         user: userId,
         isActive: true
       });
-      
+
       if (!hiddenCategory) {
         return res.status(400).json({ success: false, message: "Invalid hidden category" });
       }
@@ -60,11 +60,12 @@ export const createExpense = async (req, res) => {
       notes: (notes && String(notes).trim()) || "",
       isHidden: isHidden || false,
       hiddenCategoryId: hiddenCategory ? hiddenCategory._id : null,
+      isEmergency: isEmergency || false,
     });
 
     // Update streak after expense is added
     const streakResult = await updateStreakOnExpense(userId);
-    
+
     // Calculate streak bonus XP if applicable
     let streakXP = 0;
     if (streakResult.success && streakResult.streakIncreased) {
@@ -75,18 +76,18 @@ export const createExpense = async (req, res) => {
     try {
       // Track basic expense addition
       await updateChallengeProgress(userId, 'add-expense', 1);
-      
+
       // Track expense with notes
       if (notes && String(notes).trim()) {
         await updateChallengeProgress(userId, 'add-expense-with-notes', 1);
       }
-      
+
       // Track multiple expenses
       await updateChallengeProgress(userId, 'add-multiple-expenses', 1);
-      
+
       // Track daily tracking
       await updateChallengeProgress(userId, 'track-daily', 1);
-      
+
       // Track streak keeping
       if (streakResult.success && streakResult.currentStreak > 0) {
         await updateChallengeProgress(userId, 'check-streak', 1);
@@ -96,11 +97,23 @@ export const createExpense = async (req, res) => {
       console.error("Challenge update error:", challengeErr);
     }
 
-    // OPTIONAL: If you want to update budgets automatically when a new expense is added,
-    // call your budget update logic here (e.g., services/updateBudgetOnExpense(expense))
+    // Auto-update budgets (skip for emergency expenses)
+    let budgetUpdateResult = null;
+    if (!expense.isEmergency) {
+      try {
+        budgetUpdateResult = await updateBudgetOnExpense(userId, {
+          category: expense.category,
+          amount: expense.amount,
+          date: expense.date
+        });
+      } catch (budgetErr) {
+        // Don't fail expense creation if budget update fails
+        console.error("Budget update error:", budgetErr);
+      }
+    }
 
-    return res.status(201).json({ 
-      success: true, 
+    return res.status(201).json({
+      success: true,
       expense,
       streak: streakResult.success ? {
         currentStreak: streakResult.currentStreak,
@@ -110,6 +123,10 @@ export const createExpense = async (req, res) => {
         graceUsed: streakResult.graceUsed,
         streakXP,
         message: streakResult.message
+      } : null,
+      budgetUpdate: budgetUpdateResult ? {
+        updatedBudgets: budgetUpdateResult.updatedBudgets,
+        message: budgetUpdateResult.message
       } : null
     });
   } catch (err) {
@@ -164,7 +181,7 @@ export const getExpenses = async (req, res) => {
       filter.date = filter.date || {};
       // set end of day for inclusive behavior if time not provided
       const toDate = new Date(to);
-      toDate.setHours(23,59,59,999);
+      toDate.setHours(23, 59, 59, 999);
       filter.date.$lte = toDate;
     }
 

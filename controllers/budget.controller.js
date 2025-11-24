@@ -56,7 +56,7 @@ export const createBudget = async (req, res) => {
     if (!["overall", "category"].includes(budgetType)) {
       return res.status(400).json({ success: false, message: "budgetType must be 'overall' or 'category'" });
     }
-    
+
     // Validate categoryName for category budgets
     if (budgetType === "category") {
       if (!categoryName || typeof categoryName !== "string") {
@@ -79,36 +79,25 @@ export const createBudget = async (req, res) => {
     // === CHECK FOR OVERLAPPING BUDGETS ===
     const newStartDate = new Date(startDate);
     const newEndDate = new Date(endDate);
-    
-    // Check for overlapping budgets: new budget's date range should NOT overlap with existing active budgets
-    // Overlap occurs when: (newStart <= existingEnd) AND (newEnd >= existingStart)
+
+    // Check for overlapping budgets
+    // Two date ranges overlap if: (newStart <= existingEnd) AND (newEnd >= existingStart)
+    // This single condition catches all overlap scenarios:
+    // - New budget completely contains existing budget
+    // - Existing budget completely contains new budget  
+    // - Partial overlap on either end
     const overlapQuery = {
       user: userId,
-      $or: [
-        // Case 1: New budget starts during an existing budget
-        {
-          startDate: { $lte: newStartDate },
-          endDate: { $gte: newStartDate }
-        },
-        // Case 2: New budget ends during an existing budget
-        {
-          startDate: { $lte: newEndDate },
-          endDate: { $gte: newEndDate }
-        },
-        // Case 3: New budget completely contains an existing budget
-        {
-          startDate: { $gte: newStartDate },
-          endDate: { $lte: newEndDate }
-        }
-      ]
+      startDate: { $lte: newEndDate },    // Existing budget starts before or when new budget ends
+      endDate: { $gte: newStartDate }     // Existing budget ends after or when new budget starts
     };
 
     if (budgetType === "overall") {
       // For overall budgets, check if any overall budget overlaps with the new date range
       overlapQuery.budgetType = "overall";
-      
+
       const existingOverallBudget = await Budget.findOne(overlapQuery);
-      
+
       if (existingOverallBudget) {
         return res.status(400).json({
           success: false,
@@ -125,9 +114,9 @@ export const createBudget = async (req, res) => {
       // For category budgets, check if a budget for the same category overlaps with the new date range
       overlapQuery.budgetType = "category";
       overlapQuery.categoryName = categoryName;
-      
+
       const existingCategoryBudget = await Budget.findOne(overlapQuery);
-      
+
       if (existingCategoryBudget) {
         return res.status(400).json({
           success: false,
@@ -151,7 +140,7 @@ export const createBudget = async (req, res) => {
         budgetDuration: "yearly",
         budgetType: budgetType,
       };
-      
+
       if (budgetType === "category") {
         yearlyBudgetQuery.categoryName = categoryName;
       }
@@ -227,7 +216,7 @@ export const createBudget = async (req, res) => {
     return res.status(201).json({ success: true, budget: budgetDoc, totalSavings: totalSavings.totalSaved });
   } catch (err) {
     console.error("createBudget error:", err);
-    
+
     // Handle duplicate key errors from unique indexes
     if (err.code === 11000) {
       const field = err.keyPattern;
@@ -264,10 +253,10 @@ export const createBudget = async (req, res) => {
         message: "Invalid data format provided.",
       });
     }
-    
-    return res.status(500).json({ 
-      success: false, 
-      message: "Failed to create budget. Please try again later." 
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create budget. Please try again later."
     });
   }
 };
@@ -286,9 +275,9 @@ export const getBudgets = async (req, res) => {
     return res.json({ success: true, budgets, totalSavings: totalSavingsDoc?.totalSaved || 0 });
   } catch (err) {
     console.error("getBudgets error:", err);
-    return res.status(500).json({ 
-      success: false, 
-      message: "Failed to fetch budgets. Please try again later." 
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch budgets. Please try again later."
     });
   }
 };
@@ -304,7 +293,7 @@ export const getActiveBudgets = async (req, res) => {
     if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
 
     const now = new Date();
-    
+
     // Find budgets where current date is between startDate and endDate
     const activeBudgets = await Budget.find({
       user: userId,
@@ -313,18 +302,18 @@ export const getActiveBudgets = async (req, res) => {
     }).sort({ createdAt: -1 }).lean();
 
     const totalSavingsDoc = await TotalSavings.findOne({ user: userId });
-    
-    return res.json({ 
-      success: true, 
+
+    return res.json({
+      success: true,
       count: activeBudgets.length,
-      budgets: activeBudgets, 
-      totalSavings: totalSavingsDoc?.totalSaved || 0 
+      budgets: activeBudgets,
+      totalSavings: totalSavingsDoc?.totalSaved || 0
     });
   } catch (err) {
     console.error("getActiveBudgets error:", err);
-    return res.status(500).json({ 
-      success: false, 
-      message: "Failed to fetch active budgets. Please try again later." 
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch active budgets. Please try again later."
     });
   }
 };
@@ -348,9 +337,9 @@ export const getBudgetById = async (req, res) => {
     return res.json({ success: true, budget });
   } catch (err) {
     console.error("getBudgetById error:", err);
-    return res.status(500).json({ 
-      success: false, 
-      message: "Failed to fetch budget details. Please try again later." 
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch budget details. Please try again later."
     });
   }
 };
@@ -399,9 +388,9 @@ export const addSpentToBudget = async (req, res) => {
     return res.json({ success: true, budget: updated, totalSavings: totalSavings.totalSaved });
   } catch (err) {
     console.error("addSpentToBudget error:", err);
-    return res.status(500).json({ 
-      success: false, 
-      message: "Failed to update spending. Please try again later." 
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update spending. Please try again later."
     });
   }
 };
@@ -416,9 +405,9 @@ export const getBudgetSummary = async (req, res) => {
     if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
 
     // Get all yearly budgets
-    const yearlyBudgets = await Budget.find({ 
-      user: userId, 
-      budgetDuration: "yearly" 
+    const yearlyBudgets = await Budget.find({
+      user: userId,
+      budgetDuration: "yearly"
     }).lean();
 
     const summary = [];
@@ -461,8 +450,8 @@ export const getBudgetSummary = async (req, res) => {
         })),
         totalAllocatedMonthly,
         remainingBudget,
-        allocationPercentage: yearlyBudget.budgetAmount > 0 
-          ? ((totalAllocatedMonthly / yearlyBudget.budgetAmount) * 100).toFixed(2) 
+        allocationPercentage: yearlyBudget.budgetAmount > 0
+          ? ((totalAllocatedMonthly / yearlyBudget.budgetAmount) * 100).toFixed(2)
           : "0.00",
       });
     }
@@ -470,9 +459,9 @@ export const getBudgetSummary = async (req, res) => {
     return res.json({ success: true, summary });
   } catch (err) {
     console.error("getBudgetSummary error:", err);
-    return res.status(500).json({ 
-      success: false, 
-      message: "Failed to fetch budget summary. Please try again later." 
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch budget summary. Please try again later."
     });
   }
 };
