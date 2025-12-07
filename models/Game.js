@@ -10,7 +10,8 @@ const gameSchema = new mongoose.Schema(
         "crypto_mining",
         "entrepreneur",
         "tax_simulator",
-        "escape_room"
+        "escape_room",
+        "hi_lo"
       ],
       unique: true,
     },

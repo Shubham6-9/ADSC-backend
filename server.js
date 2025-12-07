@@ -22,50 +22,41 @@ import gameRoutes from "./routes/game.routes.js";
 import debugRoutes from "./routes/debug.routes.js";
 import companyRoutes from "./routes/company.routes.js";
 import hiddenCategoryRoutes from "./routes/hiddenCategory.routes.js";
-
-
-
-
-
-
-
-
+import hiLoRoutes from "./routes/hiLo.routes.js";
 
 dotenv.config();
 
 const app = express();
 app.use(cors());  // allow all origins (for dev)
 
-
 // Middleware
 app.use(express.json());
 
 //Routes
-    app.use("/api/user/auth", authRoutes);
-    app.use("/api/user/my-challenges", userChallengeRoutes); // or whatever path you prefer
-    app.use("/api/user/daily-challenges", dailyChallengeRoutes); // Daily challenges routes
-    app.use("/api/user/budget", budgetRoutes);
-    app.use("/api/user/expense", expenseRoutes);
-    app.use("/api/user/goals", goalsRoutes);
-    app.use("/api/user/leaderboard", leaderboardRoutes); // Leaderboard routes
-    app.use("/api/user/streak", streakRoutes); // Streak routes
-    app.use("/api/user/friends", friendsRoutes); // Friends routes
-    app.use("/api/user/friend-challenges", friendChallengeRoutes); // Friend challenge routes
-    app.use("/api/user/games", gameRoutes); // Games routes
-    app.use("/api/user/companies", companyRoutes); // Company management routes
-    app.use("/api/user/hidden-categories", hiddenCategoryRoutes); // Hidden category routes
-    app.use("/api/user/debug", debugRoutes); // Debug routes
-    app.use("/api/user", userRoutes); // User profile routes (must come AFTER specific routes)
+app.use("/api/user/auth", authRoutes);
+app.use("/api/user/my-challenges", userChallengeRoutes); // or whatever path you prefer
+app.use("/api/user/daily-challenges", dailyChallengeRoutes); // Daily challenges routes
+app.use("/api/user/budget", budgetRoutes);
+app.use("/api/user/expense", expenseRoutes);
+app.use("/api/user/goals", goalsRoutes);
+app.use("/api/user/leaderboard", leaderboardRoutes); // Leaderboard routes
+app.use("/api/user/streak", streakRoutes); // Streak routes
+app.use("/api/user/friends", friendsRoutes); // Friends routes
+app.use("/api/user/friend-challenges", friendChallengeRoutes); // Friend challenge routes
+app.use("/api/user/games/hi_lo", hiLoRoutes); // Hi-Lo game routes (MUST come before generic games route)
+app.use("/api/user/games", gameRoutes); // Games routes
+app.use("/api/user/companies", companyRoutes); // Company management routes
+app.use("/api/user/hidden-categories", hiddenCategoryRoutes); // Hidden category routes
+app.use("/api/user/debug", debugRoutes); // Debug routes
+app.use("/api/user", userRoutes); // User profile routes (must come AFTER specific routes)
 
-    //admin
-    app.use("/api/admin/settings", settingsRoutes);
-    app.use("/api/admin/levels", levelConfigRoutes);
-    app.use("/api/admin/users", userRoutes);
-    app.use("/api/admin/actions", actionRoutes);
-    app.use("/api/admin/challenges", challengeRoutes);
-    app.use("/api/admin", adminRoutes);
-
-
+//admin
+app.use("/api/admin/settings", settingsRoutes);
+app.use("/api/admin/levels", levelConfigRoutes);
+app.use("/api/admin/users", userRoutes);
+app.use("/api/admin/actions", actionRoutes);
+app.use("/api/admin/challenges", challengeRoutes);
+app.use("/api/admin", adminRoutes);
 
 // MongoDB connection
 mongoose
