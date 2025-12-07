@@ -222,3 +222,54 @@ export const getExpenses = async (req, res) => {
     return res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
+
+/**
+ * PATCH /api/user/expense/:id
+ * Body: { amount?, notes? }
+ * Updates an existing expense's amount and/or notes
+ */
+export const updateExpense = async (req, res) => {
+  try {
+    const userId = req.user && req.user.id;
+    if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+    const { id } = req.params;
+    const { amount, notes } = req.body;
+
+    // Validate expense ID
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid expense ID" });
+    }
+
+    // Find expense and verify ownership
+    const expense = await Expense.findOne({ _id: id, user: userId });
+    if (!expense) {
+      return res.status(404).json({ success: false, message: "Expense not found" });
+    }
+
+    // Validate and update amount if provided
+    if (amount !== undefined) {
+      const numericAmount = Number(amount);
+      if (Number.isNaN(numericAmount) || numericAmount < 0) {
+        return res.status(400).json({ success: false, message: "amount must be a non-negative number" });
+      }
+      expense.amount = numericAmount;
+    }
+
+    // Update notes if provided (can be empty string to clear notes)
+    if (notes !== undefined) {
+      expense.notes = String(notes).trim();
+    }
+
+    await expense.save();
+
+    return res.json({
+      success: true,
+      message: "Expense updated successfully",
+      expense
+    });
+  } catch (err) {
+    console.error("updateExpense error:", err);
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+};
